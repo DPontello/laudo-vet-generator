@@ -1,0 +1,188 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Handler da API do laudo (contrato JSON).
+ *
+ * A logica vive numa funcao PURA (tratarRequisicaoLaudo) que recebe o metodo HTTP
+ * e o corpo bruto e devolve {status, headers, body} — sem tocar superglobais nem
+ * ecoar nada. Assim o endpoint (public/index.php) fica fino e a logica fica
+ * testavel sem servidor.
+ *
+ * Transporte das imagens: BASE64 dentro do proprio JSON (campo opcional `imagens`,
+ * lista de strings JPEG em base64). Escolha por simplicidade — um unico corpo JSON,
+ * sem multipart. As imagens sao efemeras: decodificadas em memoria e repassadas ao
+ * gerador de PDF, que as grava em arquivo temporario apenas para anexar e remove ao
+ * final (CLAUDE.md secao 2). Nada de imagem e persistido no servidor.
+ *
+ * Contrato de entrada (POST, application/json):
+ *   { "cabecalho": {...}, "orgaos": {...}, "impressao_diagnostica": [...],
+ *     "observacoes_finais": [...], "imagens": ["<jpeg-base64>", ...] }
+ * Saida: 200 com o PDF (application/pdf) ou 4xx/5xx com { "error": "..." } (JSON).
+ */
+
+require_once __DIR__ . '/../laudo.php';
+require_once __DIR__ . '/../pdf/gerarPdf.php';
+
+/** Monta uma resposta JSON padronizada. */
+function respostaJson(int $status, array $dados): array
+{
+    return [
+        'status'  => $status,
+        'headers' => ['Content-Type' => 'application/json; charset=utf-8'],
+        'body'    => json_encode($dados, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    ];
+}
+
+/**
+ * Validacao basica do payload (campos criticos presentes e com tipos corretos).
+ *
+ * @return string|null Mensagem de erro, ou null se valido.
+ */
+function validarPayloadLaudo(array $d): ?string
+{
+    if (!isset($d['cabecalho']) || !is_array($d['cabecalho'])) {
+        return 'Campo "cabecalho" ausente ou invalido (esperado objeto).';
+    }
+    if (!isset($d['orgaos']) || !is_array($d['orgaos'])) {
+        return 'Campo "orgaos" ausente ou invalido (esperado objeto).';
+    }
+
+    $sexo = $d['cabecalho']['sexo'] ?? null;
+    if ($sexo !== null && !in_array($sexo, ['M', 'F'], true)) {
+        return 'cabecalho.sexo deve ser "M" ou "F".';
+    }
+
+    foreach ($d['orgaos'] as $nome => $org) {
+        if (!is_array($org)) {
+            return "orgaos.{$nome} deve ser um objeto.";
+        }
+        // Todos os orgaos tem `avaliado` boolean, exceto reprodutor (blocos proprios).
+        if ($nome !== 'reprodutor' && array_key_exists('avaliado', $org) && !is_bool($org['avaliado'])) {
+            return "orgaos.{$nome}.avaliado deve ser booleano.";
+        }
+    }
+
+    foreach (['impressao_diagnostica', 'observacoes_finais'] as $k) {
+        if (array_key_exists($k, $d) && !is_array($d[$k])) {
+            return "{$k} deve ser uma lista.";
+        }
+    }
+
+    if (array_key_exists('imagens', $d) && !is_array($d['imagens'])) {
+        return 'imagens deve ser uma lista de strings JPEG em base64.';
+    }
+
+    return null;
+}
+
+/**
+ * Decodifica e valida as imagens base64. Devolve os bytes de cada JPEG.
+ *
+ * @param array<mixed> $imagensBase64
+ * @return array{0: array<string>, 1: ?string} [bytes, erro]
+ */
+function decodificarImagens(array $imagensBase64): array
+{
+    $bytesImagens = [];
+    $indice = 0;
+    foreach ($imagensBase64 as $b64) {
+        $indice++;
+        if (!is_string($b64)) {
+            return [[], "imagens[{$indice}] deve ser uma string base64."];
+        }
+        // Tolera prefixo data URI (data:image/jpeg;base64,....).
+        if (str_contains($b64, ',')) {
+            $b64 = substr($b64, strpos($b64, ',') + 1);
+        }
+        $bytes = base64_decode($b64, true);
+        if ($bytes === false || $bytes === '') {
+            return [[], "imagens[{$indice}] nao e base64 valido."];
+        }
+        // Assinatura JPEG (SOI 0xFFD8).
+        if (substr($bytes, 0, 2) !== "\xFF\xD8") {
+            return [[], "imagens[{$indice}] nao e um JPEG valido."];
+        }
+        $bytesImagens[] = $bytes;
+    }
+    return [$bytesImagens, null];
+}
+
+/** Nome de arquivo seguro para o PDF a partir do nome do paciente. */
+function nomeArquivoPdf(array $cabecalho): string
+{
+    $paciente = trim((string) ($cabecalho['paciente'] ?? ''));
+    $base = $paciente !== '' ? $paciente : 'laudo';
+    $ascii = function_exists('iconv') ? @iconv('UTF-8', 'ASCII//TRANSLIT', $base) : $base;
+    $ascii = is_string($ascii) && $ascii !== '' ? $ascii : $base;
+    $slug = preg_replace('/[^A-Za-z0-9]+/', '-', $ascii);
+    $slug = trim((string) $slug, '-');
+    return 'laudo-' . ($slug !== '' ? strtolower($slug) : 'paciente') . '.pdf';
+}
+
+/**
+ * Trata uma requisicao ao endpoint do laudo.
+ *
+ * @param string $metodo    Metodo HTTP (GET, POST, ...).
+ * @param string $corpoBruto Corpo bruto da requisicao (php://input).
+ * @return array{status:int, headers:array<string,string>, body:string}
+ */
+function tratarRequisicaoLaudo(string $metodo, string $corpoBruto): array
+{
+    $metodo = strtoupper($metodo);
+
+    if ($metodo === 'GET') {
+        return respostaJson(200, [
+            'servico' => 'laudo-vet-generator',
+            'uso'     => 'POST application/json com o payload do laudo (ver laudo.schema.json). '
+                . 'Imagens opcionais em "imagens" (lista de JPEG base64). Retorna o PDF.',
+        ]);
+    }
+
+    if ($metodo !== 'POST') {
+        return respostaJson(405, ['error' => 'Metodo nao permitido. Use POST.']);
+    }
+
+    if (trim($corpoBruto) === '') {
+        return respostaJson(400, ['error' => 'Corpo da requisicao vazio; envie o payload JSON.']);
+    }
+
+    $dados = json_decode($corpoBruto, true);
+    if (!is_array($dados)) {
+        return respostaJson(400, ['error' => 'Corpo da requisicao nao e um JSON valido.']);
+    }
+
+    $erro = validarPayloadLaudo($dados);
+    if ($erro !== null) {
+        return respostaJson(400, ['error' => $erro]);
+    }
+
+    // Extrai e valida as imagens (efemeras).
+    $imagens = [];
+    if (array_key_exists('imagens', $dados)) {
+        [$imagens, $erroImg] = decodificarImagens($dados['imagens']);
+        if ($erroImg !== null) {
+            return respostaJson(400, ['error' => $erroImg]);
+        }
+        unset($dados['imagens']);
+    }
+
+    try {
+        $texto = montarLaudo($dados);
+        $pdf = gerarLaudoPdf($texto, $imagens);
+    } catch (\Throwable $e) {
+        return respostaJson(500, ['error' => 'Falha ao gerar o laudo: ' . $e->getMessage()]);
+    }
+
+    $nome = nomeArquivoPdf((array) ($dados['cabecalho'] ?? []));
+    return [
+        'status'  => 200,
+        'headers' => [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $nome . '"',
+            'Content-Length'      => (string) strlen($pdf),
+        ],
+        'body'    => $pdf,
+    ];
+}
