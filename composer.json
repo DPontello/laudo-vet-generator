@@ -1,0 +1,13 @@
+{
+    "name": "aline/laudo-vet-generator",
+    "description": "Gerador de laudos de ultrassonografia veterinaria (compositores PHP + geracao de PDF).",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "setasign/fpdf": "^1.8"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}
