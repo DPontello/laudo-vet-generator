@@ -64,6 +64,11 @@ docker build -t laudo-vet-generator .
 docker run --rm -p 8080:8080 laudo-vet-generator
 ```
 
+> **Windows:** o Docker Desktop usa o backend **WSL2**. Se aparecer "virtualisation support
+> wasn't detected", confirme a virtualização habilitada na BIOS/UEFI e habilite o WSL2: abra o
+> **PowerShell como Administrador**, rode `wsl --install` e **reinicie**. Sem Docker, use o modo
+> local acima (`iniciar.bat`).
+
 ---
 
 ## Como rodar (sem Docker)
@@ -77,6 +82,9 @@ php -S localhost:8080 -t public
 ```
 
 Abra **http://localhost:8080**.
+
+> **Windows (atalho):** dê **duplo-clique em `iniciar.bat`** — ele sobe o servidor e abre o
+> navegador. Usa o PHP do sistema (ou um PHP local em `.tooling/`, se existir).
 
 > `gd` é usado apenas pelos testes (para fabricar JPEGs de amostra); o app em si usa `getimagesize`,
 > que é do core. `mbstring` é necessário na geração do PDF (conversão UTF-8 → Windows-1252).
