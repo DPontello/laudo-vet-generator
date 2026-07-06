@@ -55,3 +55,20 @@ if (!function_exists('capitalizar')) {
         return ucfirst($texto);
     }
 }
+
+if (!function_exists('faixaCm')) {
+    /**
+     * Faixa de medida "X cm a Y cm" (pt-BR). Se so um lado for aferido, devolve
+     * "X cm"; se ambos forem null, devolve string vazia (a faixa some da frase).
+     * Usada por Estomago e Intestinos (min-max por segmento).
+     */
+    function faixaCm($min, $max): string
+    {
+        if ($min !== null && $max !== null) {
+            return formatarCm((float) $min) . ' cm a ' . formatarCm((float) $max) . ' cm';
+        }
+        if ($min !== null) { return formatarCm((float) $min) . ' cm'; }
+        if ($max !== null) { return formatarCm((float) $max) . ' cm'; }
+        return '';
+    }
+}
