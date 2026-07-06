@@ -1,0 +1,28 @@
+# Contexto local do Claude Code (não versionado a pedido do time)
+CLAUDE.md
+.claude/
+
+# PHP / Composer
+/vendor/
+composer.lock
+*.log
+
+# Artefatos efêmeros (PDFs gerados e imagens anexadas são descartados)
+/storage/tmp/
+/public/laudos-gerados/
+*.pdf
+!docs/referencia/*.pdf
+
+# Ambiente / segredos
+.env
+.env.*
+!.env.example
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Editores / IDE
+.idea/
+.vscode/
+*.swp
