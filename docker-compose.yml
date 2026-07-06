@@ -1,0 +1,13 @@
+# Sobe o gerador de laudos em http://localhost:8080
+#
+#   docker compose up --build        # inicia o servico
+#   docker compose run --rm laudo php tests/laudo-round-trip.php   # roda um teste
+#
+services:
+  laudo:
+    build: .
+    image: laudo-vet-generator
+    container_name: laudo-vet-generator
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
