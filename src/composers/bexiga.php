@@ -13,21 +13,7 @@ declare(strict_types=1);
  * no schema nem no formulario.
  */
 
-/** Converte medida em cm para o formato pt-BR (0.11 -> "0,11"). */
-function formatarCm(float $valor): string
-{
-    return number_format($valor, 2, ',', '');
-}
-
-/** Grau (discreta|moderada|acentuada) -> adverbio de intensidade. */
-function grauAdverbio(string $grau): string
-{
-    return [
-        'discreta'  => 'Discretamente',
-        'moderada'  => 'Moderadamente',
-        'acentuada' => 'Acentuadamente',
-    ][$grau] ?? 'Moderadamente';
-}
+require_once __DIR__ . '/_helpers.php';
 
 /**
  * Compoe o paragrafo da Bexiga.
