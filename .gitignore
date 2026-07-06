@@ -2,6 +2,9 @@
 CLAUDE.md
 .claude/
 
+# Runtime PHP local (baixado para rodar os testes; não faz parte do projeto)
+/.tooling/
+
 # PHP / Composer
 /vendor/
 composer.lock
