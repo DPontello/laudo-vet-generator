@@ -36,7 +36,8 @@
         "idade": { "type": "string", "default": "" },
         "responsavel": { "type": "string", "default": "" },
         "veterinario_requisitante": { "type": "string", "default": "" },
-        "data_exame": { "type": "string", "description": "AAAA-MM-DD" }
+        "data_exame": { "type": "string", "description": "AAAA-MM-DD" },
+        "data_laudo": { "type": "string", "description": "AAAA-MM-DD; data de emissao/assinatura do laudo. Se ausente, usa data_exame." }
       }
     },
 
