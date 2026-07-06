@@ -140,6 +140,7 @@
             "bordas": { "type": "string", "enum": ["afiladas", "abauladas"], "default": "afiladas" },
             "contornos": { "type": "string", "enum": ["regulares", "irregulares"], "default": "regulares" },
             "ecogenicidade": { "type": "string", "enum": ["usual", "hiperecogenicidade_difusa", "hipoecogenicidade_difusa"], "default": "usual" },
+            "ecogenicidade_grau": { "$ref": "#/$defs/grau_opcional", "description": "Intensidade opcional da hiper/hipoecogenicidade hepatica (ex.: 'Discreta hiperecogenicidade')." },
             "ecotextura": { "type": "string", "enum": ["homogenea", "heterogenea", "grosseira"], "default": "homogenea" },
             "sistema_porta_anatomico": { "type": "boolean", "default": true },
             "observacoes": { "type": "string", "default": "" }
