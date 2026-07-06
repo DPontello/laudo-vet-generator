@@ -7,6 +7,7 @@
   "required": ["cabecalho", "orgaos"],
   "$defs": {
     "grau": { "type": "string", "enum": ["discreta", "moderada", "acentuada"] },
+    "grau_opcional": { "type": ["string", "null"], "enum": ["discreta", "moderada", "acentuada", null], "default": null, "description": "Intensidade opcional; null = sem prefixo de grau na frase." },
     "lateralidade": { "type": "string", "enum": ["esquerdo", "direito", "bilateral"] },
     "medida_cm": { "type": ["number", "null"], "minimum": 0, "default": null },
     "adrenal_lado": {
@@ -94,6 +95,7 @@
             "medida_direito_cm": { "$ref": "#/$defs/medida_cm", "maximum": 15 },
             "contornos": { "type": "string", "enum": ["regulares", "irregulares"], "default": "regulares" },
             "ecogenicidade_cortical": { "type": "string", "enum": ["usual", "hiperecogenicidade_difusa"], "default": "usual" },
+            "ecogenicidade_grau": { "$ref": "#/$defs/grau_opcional", "description": "Intensidade opcional da hiperecogenicidade cortical (ex.: 'Discreta hiperecogenicidade')." },
             "ecotextura": { "type": "string", "enum": ["homogenea", "heterogenea"], "default": "homogenea" },
             "relacao_corticomedular": { "type": "string", "enum": ["mantida", "perdida"], "default": "mantida" },
             "achados": {
@@ -105,6 +107,7 @@
                 "properties": {
                   "tipo": { "type": "string", "enum": ["nefrocalcinose", "infarto_fibrose", "cistos", "mineralizacao_diverticular", "sinal_medular", "nefrolito"] },
                   "lado": { "$ref": "#/$defs/lateralidade" },
+                  "grau": { "$ref": "#/$defs/grau_opcional", "description": "Intensidade opcional do achado (ex.: 'discretos focos')." },
                   "medida_cm": { "$ref": "#/$defs/medida_cm", "maximum": 10 }
                 }
               }
