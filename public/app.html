@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gerador de Laudo — Ultrassonografia Veterinária</title>
+    <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar__brand">
+            <strong>Laudo US Veterinário</strong>
+            <span class="topbar__sub">Aline Marques de Souza — CRMV-MG 31116</span>
+        </div>
+        <div class="topbar__actions">
+            <button type="button" id="btn-tudo-normal" class="btn btn--ghost" title="Preenche as descrições padrão de órgãos saudáveis (Alt+N)">Tudo Normal</button>
+            <button type="submit" form="form-laudo" id="btn-gerar" class="btn btn--primary" title="Gera o PDF (Alt+G)">Gerar PDF</button>
+        </div>
+    </header>
+
+    <main class="wrap">
+        <form id="form-laudo" novalidate>
+            <!-- Cabeçalho do paciente -->
+            <section class="card" id="sec-cabecalho">
+                <h2 class="card__title">Cabeçalho</h2>
+                <div class="grid">
+                    <label class="field"><span>Paciente</span><input type="text" id="cab_paciente" name="paciente"></label>
+                    <label class="field"><span>Espécie</span><input type="text" id="cab_especie" name="especie"></label>
+                    <label class="field"><span>Raça</span><input type="text" id="cab_raca" name="raca"></label>
+                    <label class="field field--sm"><span>Sexo</span>
+                        <select id="cab_sexo" name="sexo">
+                            <option value="F">Fêmea</option>
+                            <option value="M">Macho</option>
+                        </select>
+                    </label>
+                    <label class="field"><span>Idade</span><input type="text" id="cab_idade" name="idade" placeholder="ex.: 7 anos"></label>
+                    <label class="field"><span>Responsável</span><input type="text" id="cab_responsavel" name="responsavel"></label>
+                    <label class="field field--wide"><span>Veterinário(a) requisitante</span><input type="text" id="cab_veterinario_requisitante" name="veterinario_requisitante"></label>
+                    <label class="field field--sm"><span>Data do exame</span><input type="date" id="cab_data_exame" name="data_exame"></label>
+                    <label class="field field--sm"><span>Data do laudo</span><input type="date" id="cab_data_laudo" name="data_laudo"></label>
+                </div>
+            </section>
+
+            <!-- Órgãos (injetados via JS a partir do config que espelha o schema) -->
+            <div id="orgaos-container"></div>
+
+            <!-- Impressão diagnóstica e observações -->
+            <section class="card">
+                <h2 class="card__title">Impressão diagnóstica</h2>
+                <p class="hint">Uma linha por item.</p>
+                <textarea id="impressao_diagnostica" rows="4" placeholder="Ex.: Hérnia umbilical."></textarea>
+            </section>
+
+            <section class="card">
+                <h2 class="card__title">Observações finais</h2>
+                <p class="hint">Uma linha por observação.</p>
+                <textarea id="observacoes_finais" rows="3"></textarea>
+            </section>
+
+            <!-- Imagens -->
+            <section class="card">
+                <h2 class="card__title">Imagens (JPEG)</h2>
+                <p class="hint">Anexadas ao final do PDF. Não são armazenadas no servidor.</p>
+                <input type="file" id="imagens" accept="image/jpeg" multiple>
+            </section>
+        </form>
+    </main>
+
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+
+    <script src="/assets/app.js" defer></script>
+</body>
+</html>

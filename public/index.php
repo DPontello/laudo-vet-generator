@@ -5,17 +5,25 @@ declare(strict_types=1);
 /**
  * Endpoint HTTP do gerador de laudos.
  *
- * Fino de proposito: le o metodo e o corpo bruto, delega para
- * tratarRequisicaoLaudo() (src/api/handler.php) e emite a resposta. Toda a logica
- * (validacao, montagem do laudo, geracao de PDF) mora no handler, que e testavel
- * sem servidor.
+ * Fino de proposito: no GET serve o formulario (app.html); no POST le o corpo
+ * bruto e delega para tratarRequisicaoLaudo() (src/api/handler.php), emitindo a
+ * resposta. Toda a logica (validacao, montagem do laudo, geracao de PDF) mora no
+ * handler, que e testavel sem servidor.
  *
  * Rodar local: php -S localhost:8080 -t public
  */
 
 require __DIR__ . '/../src/api/handler.php';
 
-$metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$metodo = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+
+// GET serve o formulario; ?health devolve o JSON de servico.
+if ($metodo === 'GET' && !isset($_GET['health'])) {
+    header('Content-Type: text/html; charset=utf-8');
+    readfile(__DIR__ . '/app.html');
+    return;
+}
+
 $corpo = file_get_contents('php://input');
 if ($corpo === false) {
     $corpo = '';
