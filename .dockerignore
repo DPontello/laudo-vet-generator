@@ -1,0 +1,23 @@
+# Controle de versao e infra local
+.git
+.gitignore
+
+# Runtime PHP local e dependencias (reinstaladas no build)
+.tooling
+vendor
+composer.lock
+
+# Artefatos efemeros
+*.log
+storage/tmp
+public/laudos-gerados
+
+# Contexto local do Claude Code
+CLAUDE.md
+.claude
+
+# Sistema operacional / editores
+.DS_Store
+Thumbs.db
+.idea
+.vscode
