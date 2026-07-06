@@ -1,0 +1,350 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LaudoUltrassonografiaAbdominal",
+  "description": "Schema completo do laudo. Fonte de verdade: docs/referencia/modelo-laudo-aline.txt. O frontend coleta selecoes+medidas; o PHP compoe a prosa a partir daqui (ver CLAUDE.md secoes 9-11). Convencoes: enum de grau = discreta|moderada|acentuada; lateralidade = esquerdo|direito|bilateral; medidas em cm; null = nao aferido (some da frase). Cada campo tem 'default' = valor normal (alimenta o botao 'Tudo Normal').",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cabecalho", "orgaos"],
+  "$defs": {
+    "grau": { "type": "string", "enum": ["discreta", "moderada", "acentuada"] },
+    "lateralidade": { "type": "string", "enum": ["esquerdo", "direito", "bilateral"] },
+    "medida_cm": { "type": ["number", "null"], "minimum": 0, "default": null },
+    "adrenal_lado": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Uma adrenal (esquerda ou direita).",
+      "properties": {
+        "visibilizacao": { "type": "string", "enum": ["visibilizada", "parcialmente_visibilizada", "nao_visibilizada"], "default": "visibilizada" },
+        "aumentada": { "type": "boolean", "default": false },
+        "polo_caudal_cm": { "type": ["number", "null"], "minimum": 0, "maximum": 5, "default": null },
+        "polo_cranial_cm": { "type": ["number", "null"], "minimum": 0, "maximum": 5, "default": null },
+        "comprimento_cm": { "type": ["number", "null"], "minimum": 0, "maximum": 5, "default": null }
+      }
+    }
+  },
+  "properties": {
+    "cabecalho": {
+      "type": "object",
+      "description": "Dados do paciente (topo do laudo).",
+      "additionalProperties": false,
+      "properties": {
+        "paciente": { "type": "string", "default": "" },
+        "especie": { "type": "string", "default": "" },
+        "raca": { "type": "string", "default": "" },
+        "sexo": { "type": "string", "enum": ["M", "F"], "default": "F" },
+        "idade": { "type": "string", "default": "" },
+        "responsavel": { "type": "string", "default": "" },
+        "veterinario_requisitante": { "type": "string", "default": "" },
+        "data_exame": { "type": "string", "description": "AAAA-MM-DD" }
+      }
+    },
+
+    "orgaos": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+
+        "bexiga": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avaliado"],
+          "properties": {
+            "avaliado": { "type": "boolean", "default": true },
+            "replecao": { "$ref": "#/$defs/grau", "default": "moderada", "description": "Discretamente/Moderadamente/Acentuadamente repleta." },
+            "parede": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "aspecto": { "type": "string", "enum": ["normoespessa", "espessada"], "default": "normoespessa" },
+                "espessura_cm": { "$ref": "#/$defs/medida_cm", "maximum": 3 }
+              }
+            },
+            "conteudo": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "homogeneo": { "type": "boolean", "default": true },
+                "sedimento": {
+                  "type": "object", "additionalProperties": false,
+                  "properties": {
+                    "presente": { "type": "boolean", "default": false },
+                    "quantidade": { "$ref": "#/$defs/grau", "default": "discreta" },
+                    "tipo": { "type": "string", "enum": ["sedimentos_urinarios", "microurolitos"], "default": "sedimentos_urinarios" }
+                  }
+                }
+              }
+            },
+            "litiase": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "cistolito_presente": { "type": "boolean", "default": false },
+                "cistolito_cm": { "$ref": "#/$defs/medida_cm", "maximum": 10 }
+              }
+            },
+            "observacoes": { "type": "string", "default": "" }
+          }
+        },
+
+        "rins": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avaliado"],
+          "properties": {
+            "avaliado": { "type": "boolean", "default": true },
+            "simetria": { "type": "string", "enum": ["simetricos", "assimetricos"], "default": "simetricos" },
+            "medida_esquerdo_cm": { "$ref": "#/$defs/medida_cm", "maximum": 15 },
+            "medida_direito_cm": { "$ref": "#/$defs/medida_cm", "maximum": 15 },
+            "contornos": { "type": "string", "enum": ["regulares", "irregulares"], "default": "regulares" },
+            "ecogenicidade_cortical": { "type": "string", "enum": ["usual", "hiperecogenicidade_difusa"], "default": "usual" },
+            "ecotextura": { "type": "string", "enum": ["homogenea", "heterogenea"], "default": "homogenea" },
+            "relacao_corticomedular": { "type": "string", "enum": ["mantida", "perdida"], "default": "mantida" },
+            "achados": {
+              "type": "array", "default": [], "uniqueItems": true,
+              "description": "Achados focais; cada um com lateralidade e medida opcional.",
+              "items": {
+                "type": "object", "additionalProperties": false,
+                "required": ["tipo", "lado"],
+                "properties": {
+                  "tipo": { "type": "string", "enum": ["nefrocalcinose", "infarto_fibrose", "cistos", "mineralizacao_diverticular", "sinal_medular", "nefrolito"] },
+                  "lado": { "$ref": "#/$defs/lateralidade" },
+                  "medida_cm": { "$ref": "#/$defs/medida_cm", "maximum": 10 }
+                }
+              }
+            },
+            "litiase_ausente": { "type": "boolean", "default": true, "description": "Ausencia de imagens sugestivas de litiases ou dilatacao de pelves e ureteres." },
+            "observacoes": { "type": "string", "default": "" }
+          }
+        },
+
+        "adrenais": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avaliado"],
+          "description": "Cada adrenal avaliada individualmente.",
+          "properties": {
+            "avaliado": { "type": "boolean", "default": true },
+            "esquerda": { "$ref": "#/$defs/adrenal_lado" },
+            "direita": { "$ref": "#/$defs/adrenal_lado" },
+            "observacoes": { "type": "string", "default": "" }
+          }
+        },
+
+        "figado": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avaliado"],
+          "properties": {
+            "avaliado": { "type": "boolean", "default": true },
+            "tamanho": { "type": "string", "enum": ["usual", "hepatomegalia_discreta", "hepatomegalia_moderada", "hepatomegalia_acentuada"], "default": "usual" },
+            "bordas": { "type": "string", "enum": ["afiladas", "abauladas"], "default": "afiladas" },
+            "contornos": { "type": "string", "enum": ["regulares", "irregulares"], "default": "regulares" },
+            "ecogenicidade": { "type": "string", "enum": ["usual", "hiperecogenicidade_difusa", "hipoecogenicidade_difusa"], "default": "usual" },
+            "ecotextura": { "type": "string", "enum": ["homogenea", "heterogenea", "grosseira"], "default": "homogenea" },
+            "sistema_porta_anatomico": { "type": "boolean", "default": true },
+            "observacoes": { "type": "string", "default": "" }
+          }
+        },
+
+        "vesicula_biliar": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avaliado"],
+          "properties": {
+            "avaliado": { "type": "boolean", "default": true },
+            "parede_normoespessa": { "type": "boolean", "default": true },
+            "espessura_cm": { "$ref": "#/$defs/medida_cm", "maximum": 3 },
+            "conteudo_anecogenico": { "type": "boolean", "default": true },
+            "lama_biliar": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "presente": { "type": "boolean", "default": false },
+                "quantidade": { "$ref": "#/$defs/grau", "default": "discreta" },
+                "disposicao": { "type": "string", "enum": ["suspensao", "depositado"], "default": "suspensao" }
+              }
+            },
+            "litiase_ausente": { "type": "boolean", "default": true },
+            "observacoes": { "type": "string", "default": "" }
+          }
+        },
+
+        "baco": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avaliado"],
+          "properties": {
+            "avaliado": { "type": "boolean", "default": true },
+            "tamanho": { "type": "string", "enum": ["usual", "esplenomegalia_discreta", "esplenomegalia_moderada", "esplenomegalia_acentuada"], "default": "usual" },
+            "bordas": { "type": "string", "enum": ["afiladas", "abauladas"], "default": "afiladas" },
+            "contornos": { "type": "string", "enum": ["regulares", "irregulares"], "default": "regulares" },
+            "ecogenicidade": { "type": "string", "enum": ["usual"], "default": "usual" },
+            "ecotextura": { "type": "string", "enum": ["homogenea", "heterogenea"], "default": "homogenea" },
+            "vascularizacao_anatomica": { "type": "boolean", "default": true },
+            "observacoes": { "type": "string", "default": "" }
+          }
+        },
+
+        "estomago": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avaliado"],
+          "properties": {
+            "avaliado": { "type": "boolean", "default": true },
+            "conteudo": { "type": "string", "enum": ["gas_e_ingesta", "gas", "vazio"], "default": "gas_e_ingesta" },
+            "parede": { "type": "string", "enum": ["normoespessa", "espessada"], "default": "normoespessa" },
+            "espessura_min_cm": { "$ref": "#/$defs/medida_cm", "maximum": 3 },
+            "espessura_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 3 },
+            "estratificacao_mantida": { "type": "boolean", "default": true },
+            "observacoes": { "type": "string", "default": "" }
+          }
+        },
+
+        "intestinos": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avaliado"],
+          "properties": {
+            "avaliado": { "type": "boolean", "default": true },
+            "estratificacao_mantida": { "type": "boolean", "default": true },
+            "parede": { "type": "string", "enum": ["normoespessa", "espessada"], "default": "normoespessa" },
+            "medidas": {
+              "type": "object", "additionalProperties": false,
+              "description": "Faixa min-max por segmento (cm).",
+              "properties": {
+                "duodeno_min_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "duodeno_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "jejuno_min_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "jejuno_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "colon_min_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "colon_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 }
+              }
+            },
+            "peristaltismo_preservado": { "type": "boolean", "default": true },
+            "obstrucao_ausente": { "type": "boolean", "default": true },
+            "observacoes": { "type": "string", "default": "" }
+          }
+        },
+
+        "pancreas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avaliado"],
+          "properties": {
+            "avaliado": { "type": "boolean", "default": true },
+            "visibilizacao": { "type": "string", "enum": ["nao_visibilizado", "parcialmente_visibilizado", "visibilizado"], "default": "nao_visibilizado" },
+            "lobo": { "type": "string", "enum": ["direito", "esquerdo"], "default": "direito" },
+            "espessura_cm": { "$ref": "#/$defs/medida_cm", "maximum": 4 },
+            "ecogenicidade_usual": { "type": "boolean", "default": true },
+            "reatividade_adjacente": { "type": "boolean", "default": false },
+            "observacoes": { "type": "string", "default": "" }
+          }
+        },
+
+        "reprodutor": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Escolha o bloco conforme sexo/status. Somente os avaliados entram no laudo.",
+          "properties": {
+            "utero_ovarios_ausentes": {
+              "type": "object", "additionalProperties": false,
+              "description": "Historico de OSH (ovariohisterectomia).",
+              "properties": {
+                "avaliado": { "type": "boolean", "default": false },
+                "coto_uterino_cm": { "$ref": "#/$defs/medida_cm", "maximum": 5 }
+              }
+            },
+            "utero": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "avaliado": { "type": "boolean", "default": false },
+                "status": { "type": "string", "enum": ["usual", "aumentado", "nao_visibilizado"], "default": "usual" },
+                "corpo_cm": { "$ref": "#/$defs/medida_cm", "maximum": 10 },
+                "corno_esquerdo_cm": { "$ref": "#/$defs/medida_cm", "maximum": 10 },
+                "corno_direito_cm": { "$ref": "#/$defs/medida_cm", "maximum": 10 },
+                "conteudo": { "type": "string", "enum": ["nenhum", "anecogenico", "particulado"], "default": "nenhum" }
+              }
+            },
+            "ovarios": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "avaliado": { "type": "boolean", "default": false },
+                "medida_esquerdo_cm": { "$ref": "#/$defs/medida_cm", "maximum": 6 },
+                "medida_direito_cm": { "$ref": "#/$defs/medida_cm", "maximum": 6 },
+                "ecotextura": { "type": "string", "enum": ["homogenea", "heterogenea"], "default": "homogenea" },
+                "estruturas_anecoicas": { "type": "string", "enum": ["nenhuma", "foliculos", "cistos"], "default": "nenhuma" }
+              }
+            },
+            "prostata": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "avaliado": { "type": "boolean", "default": false },
+                "tamanho": { "type": "string", "enum": ["usual", "aumentada"], "default": "usual" },
+                "medida_x_cm": { "$ref": "#/$defs/medida_cm", "maximum": 10 },
+                "medida_y_cm": { "$ref": "#/$defs/medida_cm", "maximum": 10 },
+                "medida_z_cm": { "$ref": "#/$defs/medida_cm", "maximum": 10 }
+              }
+            },
+            "testiculos": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "avaliado": { "type": "boolean", "default": false },
+                "status": { "type": "string", "enum": ["ausentes_orquiectomia", "presentes"], "default": "presentes" },
+                "esquerdo_x_cm": { "$ref": "#/$defs/medida_cm", "maximum": 8 },
+                "esquerdo_y_cm": { "$ref": "#/$defs/medida_cm", "maximum": 8 },
+                "direito_x_cm": { "$ref": "#/$defs/medida_cm", "maximum": 8 },
+                "direito_y_cm": { "$ref": "#/$defs/medida_cm", "maximum": 8 }
+              }
+            }
+          }
+        },
+
+        "cavidade_abdominal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["avaliado"],
+          "properties": {
+            "avaliado": { "type": "boolean", "default": true },
+            "sem_alteracoes": { "type": "boolean", "default": true, "description": "Sem alteracoes em linfonodos/vasos; sem liquido livre ou massas." },
+            "linfonodos_aumentados": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "presente": { "type": "boolean", "default": false },
+                "grupos": { "type": "array", "default": [], "items": { "type": "string", "enum": ["abdominais", "jejunais", "iliacos_mediais"] } }
+              }
+            },
+            "mesenterio_reativo": { "type": "boolean", "default": false },
+            "liquido_livre": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "presente": { "type": "boolean", "default": false },
+                "quantidade": { "type": "string", "enum": ["irrisoria", "discreta", "moderada", "acentuada"], "default": "discreta" },
+                "aspecto": { "type": "string", "enum": ["anecogenico", "particulado", "ecogenico"], "default": "anecogenico" },
+                "sitio": { "type": "string", "enum": ["hepatodiafragmatico", "esplenorrenal", "cistocolico", "hepatorrenal", "disperso"], "default": "disperso" }
+              }
+            },
+            "hernia": {
+              "type": "object", "additionalProperties": false,
+              "properties": {
+                "presente": { "type": "boolean", "default": false },
+                "descontinuidade_cm": { "$ref": "#/$defs/medida_cm", "maximum": 15 },
+                "regiao": { "type": "string", "enum": ["inguinal_esquerda", "inguinal_direita", "umbilical"], "default": "umbilical" }
+              }
+            },
+            "observacoes": { "type": "string", "default": "" }
+          }
+        }
+      }
+    },
+
+    "impressao_diagnostica": {
+      "type": "array",
+      "default": [],
+      "description": "Lista de linhas de impressao diagnostica (texto livre).",
+      "items": { "type": "string" }
+    },
+
+    "observacoes_finais": {
+      "type": "array",
+      "default": [],
+      "description": "IDs de notas padrao reutilizaveis (biblioteca no backend) + texto livre. Ver rodape dos modelos.",
+      "items": { "type": "string" }
+    }
+  }
+}
