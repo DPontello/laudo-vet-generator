@@ -67,14 +67,14 @@ $payload = [
     'observacoes_finais' => ['A repleção gastrointestinal por conteúdo gasoso impede a avaliação completa.'],
 ];
 
-$laudo = montarLaudo($payload);
+$estrutura = montarLaudoEstruturado($payload);
 
 // Conta temporarios de imagem antes (para checar limpeza depois).
 $padraoTmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'laudo_img_*';
 $antes = count(glob($padraoTmp) ?: []);
 
 $imagens = [jpegDeAmostra('imagem-amostra-1.jpg'), jpegDeAmostra('imagem-amostra-2.jpg')];
-$pdf = gerarLaudoPdf($laudo, $imagens);
+$pdf = gerarLaudoPdf($estrutura, $imagens);
 
 checa('PDF nao vazio', strlen($pdf) > 0, 'bytes=' . strlen($pdf));
 checa('assinatura %PDF', substr($pdf, 0, 4) === '%PDF');
@@ -87,7 +87,7 @@ $depois = count(glob($padraoTmp) ?: []);
 checa('imagens temporarias removidas', $depois === $antes, "antes={$antes} depois={$depois}");
 
 // Sem imagens: ainda gera PDF valido.
-$pdfSemImagens = gerarLaudoPdf($laudo);
+$pdfSemImagens = gerarLaudoPdf($estrutura);
 checa('PDF sem imagens', strlen($pdfSemImagens) > 0 && substr($pdfSemImagens, 0, 4) === '%PDF');
 
 echo "\nPDF de amostra: {$destino} (" . filesize($destino) . " bytes)\n";

@@ -169,8 +169,7 @@ function tratarRequisicaoLaudo(string $metodo, string $corpoBruto): array
     }
 
     try {
-        $texto = montarLaudo($dados);
-        $pdf = gerarLaudoPdf($texto, $imagens);
+        $pdf = gerarLaudoPdf(montarLaudoEstruturado($dados), $imagens);
     } catch (\Throwable $e) {
         return respostaJson(500, ['error' => 'Falha ao gerar o laudo: ' . $e->getMessage()]);
     }
