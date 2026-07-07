@@ -25,15 +25,14 @@ function checa(string $rotulo, bool $ok, string $detalhe = ''): void
     echo "FALHA  {$rotulo}" . ($detalhe !== '' ? "  ({$detalhe})" : '') . "\n";
 }
 
-/** JPEG de amostra (base64) via gd. */
+/** JPEG de amostra (base64) lido das fixtures — nao depende da extensao gd. */
 function jpegBase64(): string
 {
-    $img = imagecreatetruecolor(320, 240);
-    imagefilledrectangle($img, 0, 0, 320, 240, imagecolorallocate($img, 80, 160, 120));
-    ob_start();
-    imagejpeg($img, null, 85);
-    $bytes = (string) ob_get_clean();
-    imagedestroy($img);
+    $bytes = file_get_contents(__DIR__ . '/fixtures/imagem-amostra-1.jpg');
+    if ($bytes === false || $bytes === '') {
+        fwrite(STDERR, "fixture ausente: tests/fixtures/imagem-amostra-1.jpg\n");
+        exit(1);
+    }
     return base64_encode($bytes);
 }
 
