@@ -60,8 +60,9 @@
             <!-- Imagens -->
             <section class="card">
                 <h2 class="card__title">Imagens (JPEG)</h2>
-                <p class="hint">Anexadas ao final do PDF. Não são armazenadas no servidor.</p>
+                <p class="hint">Anexadas ao final do PDF na resolução original (sem recompressão). Não são armazenadas no servidor.</p>
                 <input type="file" id="imagens" accept="image/jpeg" multiple>
+                <div id="imagens-preview" class="thumbs" aria-live="polite"></div>
             </section>
         </form>
     </main>

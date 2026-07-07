@@ -458,11 +458,41 @@ function coletarPayload() {
     };
 }
 
-/* ---------- Imagens (base64) ---------- */
+/* ---------- Imagens (arquivos originais, sem recompressao) ---------- */
+const imagensSelecionadas = [];   // File[] acumulados entre escolhas
+
+function aoEscolherImagens(ev) {
+    const arquivos = Array.from(ev.target.files || []);
+    const aceitas = arquivos.filter((f) => f.type === 'image/jpeg');
+    aceitas.forEach((f) => imagensSelecionadas.push(f));
+    ev.target.value = '';   // permite escolher o mesmo arquivo de novo depois de remover
+    renderPreviewImagens();
+    const recusadas = arquivos.length - aceitas.length;
+    if (recusadas > 0) mostrarStatus(recusadas + ' arquivo(s) ignorado(s): apenas JPEG é aceito.', 'err');
+}
+
+function renderPreviewImagens() {
+    const box = document.getElementById('imagens-preview');
+    box.querySelectorAll('img').forEach((img) => URL.revokeObjectURL(img.src));
+    box.innerHTML = '';
+    imagensSelecionadas.forEach((f, i) => {
+        const fig = el('figure', 'thumb');
+        const img = el('img');
+        img.src = URL.createObjectURL(f);
+        img.alt = f.name;
+        const rm = el('button', 'thumb__rm', '×');
+        rm.type = 'button';
+        rm.title = 'Remover ' + f.name;
+        rm.addEventListener('click', () => { imagensSelecionadas.splice(i, 1); renderPreviewImagens(); });
+        fig.appendChild(img);
+        fig.appendChild(rm);
+        fig.appendChild(el('figcaption', 'thumb__nome', f.name));
+        box.appendChild(fig);
+    });
+}
+
 function lerImagens() {
-    const input = document.getElementById('imagens');
-    const arquivos = Array.from(input.files || []);
-    return Promise.all(arquivos.map((f) => new Promise((resolve, reject) => {
+    return Promise.all(imagensSelecionadas.map((f) => new Promise((resolve, reject) => {
         const r = new FileReader();
         r.onload = () => { const s = String(r.result); resolve(s.slice(s.indexOf(',') + 1)); };
         r.onerror = reject;
@@ -538,6 +568,7 @@ function navTeclado(ev) {
 document.addEventListener('DOMContentLoaded', () => {
     renderOrgaos();
     document.getElementById('btn-tudo-normal').addEventListener('click', tudoNormal);
+    document.getElementById('imagens').addEventListener('change', aoEscolherImagens);
     document.getElementById('form-laudo').addEventListener('submit', gerarPdf);
     document.getElementById('form-laudo').addEventListener('keydown', navTeclado);
     document.addEventListener('keydown', (e) => {
