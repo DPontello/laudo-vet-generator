@@ -501,6 +501,29 @@ function lerImagens() {
 }
 
 /* ---------- Submissao ---------- */
+/** POST do corpo (payload cru OU com laudo ja editado) e baixa o PDF retornado. */
+async function enviarPdf(body) {
+    const resp = await fetch('', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/pdf' },
+        body: JSON.stringify(body),
+    });
+
+    if (!resp.ok) {
+        let msg = 'Falha (' + resp.status + ').';
+        try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch (e) { /* ignore */ }
+        mostrarStatus(msg, 'err');
+        return false;
+    }
+
+    const blob = await resp.blob();
+    const disp = resp.headers.get('Content-Disposition') || '';
+    const m = disp.match(/filename="([^"]+)"/);
+    baixar(blob, m ? m[1] : 'laudo.pdf');
+    mostrarStatus('PDF gerado.', 'ok');
+    return true;
+}
+
 async function gerarPdf(ev) {
     if (ev) ev.preventDefault();
     const btn = document.getElementById('btn-gerar');
@@ -509,30 +532,94 @@ async function gerarPdf(ev) {
     try {
         const payload = coletarPayload();
         payload.imagens = await lerImagens();
+        await enviarPdf(payload);
+    } catch (e) {
+        mostrarStatus('Erro: ' + e.message, 'err');
+    } finally {
+        btn.disabled = false;
+    }
+}
 
+/* ---------- Previa editavel ---------- */
+let previaLaudo = null;   // laudo estruturado composto pelo servidor (para reconstruir no envio)
+
+/** Abre o laudo composto pelo servidor num editor de texto (sem gerar PDF ainda). */
+async function abrirPrevia() {
+    const btn = document.getElementById('btn-previa');
+    btn.disabled = true;
+    mostrarStatus('Montando prévia…');
+    try {
+        const payload = coletarPayload();
+        payload.modo = 'previa';
         const resp = await fetch('', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/pdf' },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify(payload),
         });
-
         if (!resp.ok) {
             let msg = 'Falha (' + resp.status + ').';
             try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch (e) { /* ignore */ }
             mostrarStatus(msg, 'err');
             return;
         }
-
-        const blob = await resp.blob();
-        const disp = resp.headers.get('Content-Disposition') || '';
-        const m = disp.match(/filename="([^"]+)"/);
-        baixar(blob, m ? m[1] : 'laudo.pdf');
-        mostrarStatus('PDF gerado.', 'ok');
+        preencherPrevia(await resp.json());
+        abrirModal();
+        mostrarStatus('Prévia pronta. Ajuste o texto e gere o PDF.', 'ok');
     } catch (e) {
         mostrarStatus('Erro: ' + e.message, 'err');
     } finally {
         btn.disabled = false;
     }
+}
+
+function preencherPrevia(laudo) {
+    previaLaudo = laudo || {};
+    const c = previaLaudo.cabecalho || {};
+    document.getElementById('previa-cabecalho').textContent =
+        [c.paciente, c.especie, c.raca, c.sexo, c.idade].filter(Boolean).join('  ·  ');
+    document.getElementById('previa-orgaos').value = (previaLaudo.orgaos || []).join('\n\n');
+    document.getElementById('previa-impressao').value = (previaLaudo.impressao || []).join('\n');
+    document.getElementById('previa-observacoes').value = (previaLaudo.observacoes || []).join('\n');
+}
+
+/** Gera o PDF a partir do texto editado na previa (envia o laudo ja composto). */
+async function gerarPdfDaPrevia() {
+    if (!previaLaudo) return;
+    const btn = document.getElementById('previa-gerar');
+    btn.disabled = true;
+    mostrarStatus('Gerando PDF…');
+    try {
+        const porLinha = (id) => document.getElementById(id).value.split('\n').map((s) => s.trim()).filter((s) => s !== '');
+        const porBloco = (id) => document.getElementById(id).value.split(/\n\s*\n/).map((s) => s.trim()).filter((s) => s !== '');
+
+        const body = coletarPayload();   // mantem cabecalho/orgaos para a validacao do servidor
+        body.laudo = {
+            cabecalho: previaLaudo.cabecalho || {},
+            titulo: previaLaudo.titulo,
+            orgaos: porBloco('previa-orgaos'),
+            impressao: porLinha('previa-impressao'),
+            observacoes: porLinha('previa-observacoes'),
+            disclaimer: previaLaudo.disclaimer,
+            local_data: previaLaudo.local_data,
+        };
+        body.imagens = await lerImagens();
+        if (await enviarPdf(body)) fecharModal();
+    } catch (e) {
+        mostrarStatus('Erro: ' + e.message, 'err');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function abrirModal() {
+    document.getElementById('previa-modal').hidden = false;
+    document.body.classList.add('modal-aberto');
+    document.getElementById('previa-orgaos').focus();
+}
+
+function fecharModal() {
+    document.getElementById('previa-modal').hidden = true;
+    document.body.classList.remove('modal-aberto');
 }
 
 function baixar(blob, nome) {
@@ -583,11 +670,18 @@ document.addEventListener('DOMContentLoaded', () => {
     aplicarTema(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
     document.getElementById('btn-tema').addEventListener('click', alternarTema);
     document.getElementById('btn-tudo-normal').addEventListener('click', tudoNormal);
+    document.getElementById('btn-previa').addEventListener('click', abrirPrevia);
     document.getElementById('imagens').addEventListener('change', aoEscolherImagens);
     document.getElementById('form-laudo').addEventListener('submit', gerarPdf);
     document.getElementById('form-laudo').addEventListener('keydown', navTeclado);
+
+    document.getElementById('previa-gerar').addEventListener('click', gerarPdfDaPrevia);
+    document.querySelectorAll('#previa-modal [data-fechar]').forEach((e) => e.addEventListener('click', fecharModal));
+
     document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !document.getElementById('previa-modal').hidden) { fecharModal(); return; }
         if (e.altKey && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); tudoNormal(); }
         if (e.altKey && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); gerarPdf(); }
+        if (e.altKey && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); abrirPrevia(); }
     });
 });

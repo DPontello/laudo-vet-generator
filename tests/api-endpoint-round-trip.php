@@ -100,6 +100,43 @@ $r = tratarRequisicaoLaudo('POST', json_encode([
 ]));
 checa('POST imagem nao-JPEG: 400', $r['status'] === 400 && str_contains($r['body'], 'JPEG'));
 
+/* ---- 10. Modo previa -> laudo estruturado em JSON (sem PDF) ---- */
+$previa = $payloadClarinha;
+unset($previa['imagens']);
+$previa['modo'] = 'previa';
+$r = tratarRequisicaoLaudo('POST', json_encode($previa));
+checa('POST previa: status 200', $r['status'] === 200, 'status=' . $r['status']);
+checa('POST previa: content-type json', str_contains($r['headers']['Content-Type'] ?? '', 'application/json'));
+$laudo = json_decode($r['body'], true);
+checa('POST previa: tem blocos de orgaos', is_array($laudo['orgaos'] ?? null) && count($laudo['orgaos']) > 0);
+checa('POST previa: tem disclaimer', is_string($laudo['disclaimer'] ?? null) && $laudo['disclaimer'] !== '');
+checa('POST previa: nao e PDF', substr($r['body'], 0, 4) !== '%PDF');
+
+/* ---- 11. Laudo ja editado -> PDF com o texto ajustado ---- */
+$marcador = 'ORGAO EDITADO NA PREVIA';
+$editado = [
+    'cabecalho'  => $payloadClarinha['cabecalho'],
+    'orgaos'     => ['bexiga' => ['avaliado' => true]],   // presente so para a validacao
+    'laudo'      => [
+        'cabecalho'   => $payloadClarinha['cabecalho'],
+        'titulo'      => 'LAUDO DE ULTRASSONOGRAFIA ABDOMINAL',
+        'orgaos'      => ["BEXIGA: {$marcador}."],
+        'impressao'   => ['Sem alteracoes.'],
+        'observacoes' => ['Observacao editada.'],
+        'disclaimer'  => 'Disclaimer.',
+        'local_data'  => 'Pouso Alegre, 02 de julho de 2026.',
+    ],
+];
+$r = tratarRequisicaoLaudo('POST', json_encode($editado));
+checa('POST laudo editado: status 200', $r['status'] === 200, 'status=' . $r['status']);
+checa('POST laudo editado: corpo %PDF', substr($r['body'], 0, 4) === '%PDF');
+
+/* ---- 12. Laudo com tipo invalido -> 400 ---- */
+$r = tratarRequisicaoLaudo('POST', json_encode([
+    'cabecalho' => ['sexo' => 'F'], 'orgaos' => ['bexiga' => ['avaliado' => true]], 'laudo' => 'texto',
+]));
+checa('POST laudo invalido: 400', $r['status'] === 400 && str_contains($r['body'], 'laudo'));
+
 if ($falhas === 0) { echo "\nOK: endpoint da API verde.\n"; exit(0); }
 echo "\nFALHA: {$falhas} verificacao(oes).\n";
 exit(1);

@@ -234,3 +234,37 @@ function montarLaudoEstruturado(array $payload): array
         'local_data'  => laudoLocalDataLinha($cabecalho),
     ];
 }
+
+/**
+ * Sanitiza um laudo estruturado EDITADO (vindo da previa editavel do navegador)
+ * para o formato que gerarLaudoPdf() espera — o mesmo shape de
+ * montarLaudoEstruturado(). Cada secao de prosa vira lista de linhas nao-vazias;
+ * os textos fixos (titulo, disclaimer) caem no padrao se vierem vazios. Assim o
+ * texto que a medica ajustou no navegador vira PDF SEM recompor as frases dos
+ * compositores, mantendo o timbrado intacto.
+ *
+ * @param array<string,mixed> $laudo Laudo estruturado (possivelmente editado).
+ * @return array{cabecalho:array<string,mixed>,titulo:string,orgaos:array<string>,impressao:array<string>,observacoes:array<string>,disclaimer:string,local_data:string}
+ */
+function laudoEditadoParaPdf(array $laudo): array
+{
+    $lista = static function ($valor): array {
+        $itens = [];
+        foreach ((is_array($valor) ? $valor : []) as $item) {
+            $s = trim((string) $item);
+            if ($s !== '') { $itens[] = $s; }
+        }
+        return $itens;
+    };
+    $texto = static fn($v, string $padrao): string => trim((string) ($v ?? '')) !== '' ? (string) $v : $padrao;
+
+    return [
+        'cabecalho'   => is_array($laudo['cabecalho'] ?? null) ? $laudo['cabecalho'] : [],
+        'titulo'      => $texto($laudo['titulo'] ?? null, LAUDO_TITULO),
+        'orgaos'      => $lista($laudo['orgaos'] ?? []),
+        'impressao'   => $lista($laudo['impressao'] ?? []),
+        'observacoes' => $lista($laudo['observacoes'] ?? []),
+        'disclaimer'  => $texto($laudo['disclaimer'] ?? null, LAUDO_DISCLAIMER),
+        'local_data'  => (string) ($laudo['local_data'] ?? ''),
+    ];
+}

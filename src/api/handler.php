@@ -74,6 +74,11 @@ function validarPayloadLaudo(array $d): ?string
         return 'imagens deve ser uma lista de strings JPEG em base64.';
     }
 
+    // Laudo ja editado (fluxo da previa editavel): objeto opcional com os blocos.
+    if (array_key_exists('laudo', $d) && !is_array($d['laudo'])) {
+        return 'laudo deve ser um objeto com os blocos ja compostos.';
+    }
+
     return null;
 }
 
@@ -158,6 +163,13 @@ function tratarRequisicaoLaudo(string $metodo, string $corpoBruto): array
         return respostaJson(400, ['error' => $erro]);
     }
 
+    // Modo "previa": devolve o laudo ja composto em blocos estruturados (JSON),
+    // para a medica editar o texto no navegador antes de gerar o PDF. Nao gera
+    // PDF nem precisa de imagens aqui.
+    if (($dados['modo'] ?? '') === 'previa') {
+        return respostaJson(200, montarLaudoEstruturado($dados));
+    }
+
     // Extrai e valida as imagens (efemeras).
     $imagens = [];
     if (array_key_exists('imagens', $dados)) {
@@ -168,8 +180,14 @@ function tratarRequisicaoLaudo(string $metodo, string $corpoBruto): array
         unset($dados['imagens']);
     }
 
+    // Se o payload trouxe um laudo ja editado (vindo da previa), usa-o direto —
+    // o texto ajustado vira PDF sem recompor as frases. Senao, compoe do payload.
+    $laudo = isset($dados['laudo']) && is_array($dados['laudo'])
+        ? laudoEditadoParaPdf($dados['laudo'])
+        : montarLaudoEstruturado($dados);
+
     try {
-        $pdf = gerarLaudoPdf(montarLaudoEstruturado($dados), $imagens);
+        $pdf = gerarLaudoPdf($laudo, $imagens);
     } catch (\Throwable $e) {
         return respostaJson(500, ['error' => 'Falha ao gerar o laudo: ' . $e->getMessage()]);
     }
