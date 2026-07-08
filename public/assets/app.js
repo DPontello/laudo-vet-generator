@@ -16,6 +16,22 @@ const GRAU = [['discreta', 'Discreta'], ['moderada', 'Moderada'], ['acentuada', 
 const GRAU_OPC = [['', '—'], ['discreta', 'Discreta'], ['moderada', 'Moderada'], ['acentuada', 'Acentuada']];
 const LADO = [['esquerdo', 'Esquerdo'], ['direito', 'Direito'], ['bilateral', 'Bilateral']];
 
+/* ---------- Biblioteca de observacoes finais padrao ----------
+ * Notas reutilizaveis do rodape do modelo (docs/referencia/modelo-laudo-aline.txt).
+ * O texto ainda pode ser refinado na previa editavel antes de gerar o PDF. */
+const OBSERVACOES_PADRAO = [
+    'A repleção gastrointestinal por conteúdo gasoso e consequente formação de artefato de reverberação impedem sua avaliação completa e de seu conteúdo e a visibilização de possíveis corpos sólidos.',
+    'Paciente extremamente agitado(a) e apresentando acentuada quantidade de gás difusamente distribuído por todo o trato gastrointestinal, dificultando a adequada avaliação das estruturas abdominais. Sugere-se repetição do exame com preparo com simeticona e jejum prévios.',
+    'A avaliação ultrassonográfica de órgãos profundos em cães de grande porte pode ser prejudicada pela limitação de frequência do equipamento.',
+    'A presença de líquido livre dificulta a adequada avaliação dos órgãos abdominais, devido à alteração de ecogenicidade provocada pelo fenômeno de reforço acústico, além da possível alteração de suas topografias.',
+    'Devido à acentuada distensão uterina, não foi possível avaliar adequadamente todas as estruturas abdominais.',
+    'A organomegalia e a presença de estruturas em topografia não usual podem comprometer a adequada avaliação das demais estruturas abdominais.',
+    'Sugere-se acompanhamento ultrassonográfico.',
+    'Sugere-se exame radiográfico.',
+    'Sugere-se EcoDopplercardiograma.',
+    'Sugere-se exame endoscópico.',
+];
+
 /* ---------- Config dos orgaos (espelha o schema) ---------- */
 const ORGAOS = [
     { orgao: 'bexiga', titulo: 'Bexiga', avaliavel: true, campos: [
@@ -354,6 +370,26 @@ function renderBloco(orgao, bloco) {
     return box;
 }
 
+/* ---------- Observacoes finais (checklist da biblioteca) ---------- */
+function renderObservacoesOpcoes() {
+    const box = document.getElementById('observacoes-opcoes');
+    if (!box) return;
+    OBSERVACOES_PADRAO.forEach((texto) => {
+        const lbl = el('label', 'obs-opcao');
+        const inp = el('input'); inp.type = 'checkbox'; inp.className = 'obs-check'; inp.value = texto;
+        lbl.appendChild(inp); lbl.appendChild(el('span', null, texto));
+        box.appendChild(lbl);
+    });
+}
+
+/** Observacoes finais coletadas: notas padrao marcadas + linhas do campo livre. */
+function coletarObservacoesFinais() {
+    const marcadas = Array.from(document.querySelectorAll('.obs-check:checked')).map((c) => c.value);
+    const livres = document.getElementById('observacoes_finais').value
+        .split('\n').map((s) => s.trim()).filter((s) => s !== '');
+    return marcadas.concat(livres);
+}
+
 /* ---------- Tudo Normal (defaults do schema) ---------- */
 function aplicarDefault(node, prefix) {
     const id = prefix + '_' + node.k;
@@ -454,7 +490,7 @@ function coletarPayload() {
         cabecalho: cab,
         orgaos: orgaos,
         impressao_diagnostica: linhas('impressao_diagnostica'),
-        observacoes_finais: linhas('observacoes_finais'),
+        observacoes_finais: coletarObservacoesFinais(),
     };
 }
 
@@ -667,6 +703,7 @@ function navTeclado(ev) {
 /* ---------- Init ---------- */
 document.addEventListener('DOMContentLoaded', () => {
     renderOrgaos();
+    renderObservacoesOpcoes();
     aplicarTema(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
     document.getElementById('btn-tema').addEventListener('click', alternarTema);
     document.getElementById('btn-tudo-normal').addEventListener('click', tudoNormal);
