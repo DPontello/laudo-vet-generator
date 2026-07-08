@@ -16,6 +16,9 @@ composer.lock
 *.pdf
 !docs/referencia/*.pdf
 
+# Dados do usuário (checklists personalizados criados pela médica)
+/data/
+
 # Ambiente / segredos
 .env
 .env.*

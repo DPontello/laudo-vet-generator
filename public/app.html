@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Gerador de Laudo — Ultrassonografia Veterinária</title>
     <link rel="stylesheet" href="/assets/styles.css">
+    <!-- Aplica o tema salvo antes da pintura (evita "flash"); padrao claro. -->
+    <script>try{document.documentElement.dataset.theme=localStorage.getItem('laudo_tema')||'light';}catch(e){document.documentElement.dataset.theme='light';}</script>
 </head>
 <body>
     <header class="topbar">
@@ -13,7 +15,10 @@
             <span class="topbar__sub">Aline Marques de Souza — CRMV-MG 31116</span>
         </div>
         <div class="topbar__actions">
+            <button type="button" id="btn-tema" class="btn btn--ghost" title="Alterna entre tema claro e escuro">☀ Claro</button>
+            <button type="button" id="btn-config" class="btn btn--ghost" title="Criar/editar checklists personalizados por seção">⚙ Checklists</button>
             <button type="button" id="btn-tudo-normal" class="btn btn--ghost" title="Preenche as descrições padrão de órgãos saudáveis (Alt+N)">Tudo Normal</button>
+            <button type="button" id="btn-previa" class="btn btn--ghost" title="Abre o laudo em um editor para ajustar o texto (Alt+P)">Prévia editável</button>
             <button type="submit" form="form-laudo" id="btn-gerar" class="btn btn--primary" title="Gera o PDF (Alt+G)">Gerar PDF</button>
         </div>
     </header>
@@ -53,20 +58,76 @@
 
             <section class="card">
                 <h2 class="card__title">Observações finais</h2>
-                <p class="hint">Uma linha por observação.</p>
-                <textarea id="observacoes_finais" rows="3"></textarea>
+                <p class="hint">Marque as observações padrão aplicáveis; use o campo abaixo para notas específicas (uma por linha).</p>
+                <div id="observacoes-opcoes" class="obs-lista"></div>
+                <div id="custom_observacoes_finais" class="obs-lista obs-lista--custom"></div>
+                <label class="field field--wide obs-livre"><span>Outras observações</span>
+                    <textarea id="observacoes_finais" rows="3" placeholder="Uma observação por linha."></textarea>
+                </label>
             </section>
 
             <!-- Imagens -->
             <section class="card">
                 <h2 class="card__title">Imagens (JPEG)</h2>
-                <p class="hint">Anexadas ao final do PDF. Não são armazenadas no servidor.</p>
+                <p class="hint">Anexadas ao final do PDF na resolução original (sem recompressão). Não são armazenadas no servidor.</p>
                 <input type="file" id="imagens" accept="image/jpeg" multiple>
+                <div id="imagens-preview" class="thumbs" aria-live="polite"></div>
             </section>
         </form>
     </main>
 
     <div id="status" class="status" role="status" aria-live="polite"></div>
+
+    <!-- Prévia editável do laudo (texto composto pelo servidor, ajustável antes do PDF) -->
+    <div id="previa-modal" class="modal" hidden>
+        <div class="modal__backdrop" data-fechar></div>
+        <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="previa-titulo">
+            <header class="modal__head">
+                <h2 id="previa-titulo" class="modal__title">Prévia do laudo <span class="modal__sub">— edite o texto antes de gerar o PDF</span></h2>
+                <button type="button" class="modal__x" data-fechar title="Fechar (Esc)" aria-label="Fechar">×</button>
+            </header>
+            <div class="modal__body">
+                <p class="previa-cab" id="previa-cabecalho"></p>
+                <label class="field field--wide"><span>Órgãos — um bloco por parágrafo, separados por linha em branco</span>
+                    <textarea id="previa-orgaos" rows="16"></textarea>
+                </label>
+                <label class="field field--wide"><span>Impressão diagnóstica — uma por linha</span>
+                    <textarea id="previa-impressao" rows="3"></textarea>
+                </label>
+                <label class="field field--wide"><span>Observações — uma por linha</span>
+                    <textarea id="previa-observacoes" rows="4"></textarea>
+                </label>
+                <p class="hint">Cabeçalho do paciente, disclaimer, local/data e assinatura entram automaticamente no PDF timbrado.</p>
+            </div>
+            <footer class="modal__foot">
+                <button type="button" class="btn btn--ghost" data-fechar>Fechar</button>
+                <button type="button" id="previa-gerar" class="btn btn--primary">Gerar PDF do texto editado</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Personalizar checklists: a médica cria opções de observação por seção -->
+    <div id="config-modal" class="modal" hidden>
+        <div class="modal__backdrop" data-fechar-config></div>
+        <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="config-titulo">
+            <header class="modal__head">
+                <h2 id="config-titulo" class="modal__title">Personalizar checklists <span class="modal__sub">— crie opções de observação por seção</span></h2>
+                <button type="button" class="modal__x" data-fechar-config title="Fechar (Esc)" aria-label="Fechar">×</button>
+            </header>
+            <div class="modal__body">
+                <label class="field field--wide"><span>Seção</span>
+                    <select id="config-secao"></select>
+                </label>
+                <p class="hint">Cada item vira uma caixa marcável na seção escolhida. Ao marcar, o texto entra no laudo (e ainda pode ser ajustado na prévia). O rótulo é opcional — sem ele, mostra o início do texto.</p>
+                <div id="config-itens"></div>
+                <button type="button" id="config-add" class="btn btn--ghost">+ Adicionar item</button>
+            </div>
+            <footer class="modal__foot">
+                <button type="button" class="btn btn--ghost" data-fechar-config>Cancelar</button>
+                <button type="button" id="config-salvar" class="btn btn--primary">Salvar</button>
+            </footer>
+        </div>
+    </div>
 
     <script src="/assets/app.js" defer></script>
 </body>

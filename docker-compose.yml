@@ -10,4 +10,8 @@ services:
     container_name: laudo-vet-generator
     ports:
       - "8080:8080"
+    # Dados do usuario (checklists personalizados) fora da imagem, para sobreviver
+    # a reconstrucoes (docker compose up --build).
+    volumes:
+      - ./data:/app/data
     restart: unless-stopped

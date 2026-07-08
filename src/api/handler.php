@@ -24,6 +24,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../laudo.php';
 require_once __DIR__ . '/../pdf/gerarPdf.php';
+require_once __DIR__ . '/../checklists.php';
 
 /** Monta uma resposta JSON padronizada. */
 function respostaJson(int $status, array $dados): array
@@ -74,6 +75,11 @@ function validarPayloadLaudo(array $d): ?string
         return 'imagens deve ser uma lista de strings JPEG em base64.';
     }
 
+    // Laudo ja editado (fluxo da previa editavel): objeto opcional com os blocos.
+    if (array_key_exists('laudo', $d) && !is_array($d['laudo'])) {
+        return 'laudo deve ser um objeto com os blocos ja compostos.';
+    }
+
     return null;
 }
 
@@ -122,6 +128,43 @@ function nomeArquivoPdf(array $cabecalho): string
 }
 
 /**
+ * Trata o recurso de checklists personalizados (config da propria medica).
+ * GET devolve a config salva; POST/PUT valida e grava. Rota: ?checklists.
+ *
+ * @param string $metodo     Metodo HTTP.
+ * @param string $corpoBruto  Corpo bruto (php://input) — usado no POST/PUT.
+ * @return array{status:int, headers:array<string,string>, body:string}
+ */
+function tratarRequisicaoChecklists(string $metodo, string $corpoBruto): array
+{
+    $metodo = strtoupper($metodo);
+
+    if ($metodo === 'GET') {
+        return respostaJson(200, carregarChecklists());
+    }
+    if ($metodo !== 'POST' && $metodo !== 'PUT') {
+        return respostaJson(405, ['error' => 'Use GET para ler ou POST para salvar os checklists.']);
+    }
+    if (trim($corpoBruto) === '') {
+        return respostaJson(400, ['error' => 'Corpo da requisicao vazio.']);
+    }
+    $dados = json_decode($corpoBruto, true);
+    if (!is_array($dados)) {
+        return respostaJson(400, ['error' => 'Corpo da requisicao nao e um JSON valido.']);
+    }
+    $erro = validarChecklists($dados);
+    if ($erro !== null) {
+        return respostaJson(400, ['error' => $erro]);
+    }
+    try {
+        $salvo = salvarChecklists($dados);
+    } catch (\Throwable $e) {
+        return respostaJson(500, ['error' => 'Falha ao salvar os checklists: ' . $e->getMessage()]);
+    }
+    return respostaJson(200, $salvo);
+}
+
+/**
  * Trata uma requisicao ao endpoint do laudo.
  *
  * @param string $metodo    Metodo HTTP (GET, POST, ...).
@@ -158,6 +201,13 @@ function tratarRequisicaoLaudo(string $metodo, string $corpoBruto): array
         return respostaJson(400, ['error' => $erro]);
     }
 
+    // Modo "previa": devolve o laudo ja composto em blocos estruturados (JSON),
+    // para a medica editar o texto no navegador antes de gerar o PDF. Nao gera
+    // PDF nem precisa de imagens aqui.
+    if (($dados['modo'] ?? '') === 'previa') {
+        return respostaJson(200, montarLaudoEstruturado($dados));
+    }
+
     // Extrai e valida as imagens (efemeras).
     $imagens = [];
     if (array_key_exists('imagens', $dados)) {
@@ -168,9 +218,14 @@ function tratarRequisicaoLaudo(string $metodo, string $corpoBruto): array
         unset($dados['imagens']);
     }
 
+    // Se o payload trouxe um laudo ja editado (vindo da previa), usa-o direto —
+    // o texto ajustado vira PDF sem recompor as frases. Senao, compoe do payload.
+    $laudo = isset($dados['laudo']) && is_array($dados['laudo'])
+        ? laudoEditadoParaPdf($dados['laudo'])
+        : montarLaudoEstruturado($dados);
+
     try {
-        $texto = montarLaudo($dados);
-        $pdf = gerarLaudoPdf($texto, $imagens);
+        $pdf = gerarLaudoPdf($laudo, $imagens);
     } catch (\Throwable $e) {
         return respostaJson(500, ['error' => 'Falha ao gerar o laudo: ' . $e->getMessage()]);
     }

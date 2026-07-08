@@ -58,6 +58,28 @@ function laudoDataExtenso(?string $iso): string
     return "{$m[3]} de {$mes} de {$m[1]}";
 }
 
+/** Titulo fixo do laudo. */
+const LAUDO_TITULO = 'LAUDO DE ULTRASSONOGRAFIA ABDOMINAL';
+
+/** Linha de local e data por extenso ("Pouso Alegre, 02 de julho de 2026."). */
+function laudoLocalDataLinha(array $c): string
+{
+    $dataLaudo = $c['data_laudo'] ?? ($c['data_exame'] ?? null);
+    $extenso = laudoDataExtenso($dataLaudo);
+    return 'Pouso Alegre, ' . ($extenso !== '' ? $extenso : '____ de __________ de ______') . '.';
+}
+
+/** Normaliza uma lista de linhas: trim e descarta vazias. */
+function laudoFiltrarLinhas(array $linhas): array
+{
+    $itens = [];
+    foreach ($linhas as $linha) {
+        $linha = trim((string) $linha);
+        if ($linha !== '') { $itens[] = $linha; }
+    }
+    return $itens;
+}
+
 /** Cabecalho do paciente + titulo. */
 function laudoCabecalho(array $c): string
 {
@@ -76,13 +98,13 @@ function laudoCabecalho(array $c): string
     $linhas[] = 'Responsável: ' . ($c['responsavel'] ?? '');
     $linhas[] = 'Médico(a) Veterinário(a) Requisitante: ' . ($c['veterinario_requisitante'] ?? '');
     $linhas[] = '';
-    $linhas[] = '                         LAUDO DE ULTRASSONOGRAFIA ABDOMINAL';
+    $linhas[] = '                         ' . LAUDO_TITULO;
 
     return implode("\n", $linhas);
 }
 
-/** Paragrafos dos orgaos presentes, na ordem do CLAUDE.md secao 3. */
-function laudoOrgaos(array $orgaos): string
+/** Lista dos paragrafos dos orgaos presentes, na ordem do CLAUDE.md secao 3. */
+function laudoOrgaosLista(array $orgaos): array
 {
     $ordem = [
         'bexiga'             => 'composeBexiga',
@@ -104,17 +126,19 @@ function laudoOrgaos(array $orgaos): string
         $texto = $fn((array) $orgaos[$chave]);
         if (trim($texto) !== '') { $paragrafos[] = $texto; }
     }
-    return implode("\n\n", $paragrafos);
+    return $paragrafos;
+}
+
+/** Paragrafos dos orgaos presentes, como texto unico. */
+function laudoOrgaos(array $orgaos): string
+{
+    return implode("\n\n", laudoOrgaosLista($orgaos));
 }
 
 /** Secao IMPRESSÃO DIAGNÓSTICA (ou '' se vazia). */
 function laudoImpressao(array $linhas): string
 {
-    $itens = [];
-    foreach ($linhas as $linha) {
-        $linha = trim((string) $linha);
-        if ($linha !== '') { $itens[] = $linha; }
-    }
+    $itens = laudoFiltrarLinhas($linhas);
     if (!$itens) { return ''; }
     return implode("\n", array_merge(['IMPRESSÃO DIAGNÓSTICA:'], $itens));
 }
@@ -122,11 +146,7 @@ function laudoImpressao(array $linhas): string
 /** Secao Observação (biblioteca de notas finais) (ou '' se vazia). */
 function laudoObservacoes(array $linhas): string
 {
-    $itens = [];
-    foreach ($linhas as $linha) {
-        $linha = trim((string) $linha);
-        if ($linha !== '') { $itens[] = $linha; }
-    }
+    $itens = laudoFiltrarLinhas($linhas);
     if (!$itens) { return ''; }
     return implode("\n", array_merge(['Observação:'], $itens));
 }
@@ -134,9 +154,7 @@ function laudoObservacoes(array $linhas): string
 /** Rodape fixo da medica (disclaimer, local e data, assinatura). */
 function laudoRodape(array $c): string
 {
-    $dataLaudo = $c['data_laudo'] ?? ($c['data_exame'] ?? null);
-    $extenso = laudoDataExtenso($dataLaudo);
-    $local = 'Pouso Alegre, ' . ($extenso !== '' ? $extenso : '____ de __________ de ______') . '.';
+    $local = laudoLocalDataLinha($c);
 
     return implode("\n", [
         LAUDO_DISCLAIMER,
@@ -174,4 +192,79 @@ function montarLaudo(array $payload): string
 
     $secoes = array_values(array_filter($secoes, static fn($s) => trim((string) $s) !== ''));
     return implode("\n\n", $secoes);
+}
+
+/**
+ * Monta o laudo em SECOES ESTRUTURADAS, para renderizadores que precisam de
+ * controle tipografico (o PDF timbrado). A prosa de cada orgao continua vindo
+ * inalterada dos compositores (fonte unica da redacao) — aqui so muda a
+ * embalagem: em vez de um texto unico, cada secao vem separada.
+ *
+ * @param array<string,mixed> $payload Payload conforme laudo.schema.json.
+ * @return array{
+ *   cabecalho: array<string,mixed>,
+ *   titulo: string,
+ *   orgaos: array<string>,
+ *   impressao: array<string>,
+ *   observacoes: array<string>,
+ *   disclaimer: string,
+ *   local_data: string
+ * }
+ */
+function montarLaudoEstruturado(array $payload): array
+{
+    $cabecalho = (array) ($payload['cabecalho'] ?? []);
+
+    // Compositores podem devolver mais de um bloco no mesmo texto (ex.: reprodutor,
+    // um bloco por segmento avaliado); achata em uma lista de blocos.
+    $blocos = [];
+    foreach (laudoOrgaosLista((array) ($payload['orgaos'] ?? [])) as $texto) {
+        foreach (explode("\n\n", $texto) as $bloco) {
+            if (trim($bloco) !== '') { $blocos[] = $bloco; }
+        }
+    }
+
+    return [
+        'cabecalho'   => $cabecalho,
+        'titulo'      => LAUDO_TITULO,
+        'orgaos'      => $blocos,
+        'impressao'   => laudoFiltrarLinhas((array) ($payload['impressao_diagnostica'] ?? [])),
+        'observacoes' => laudoFiltrarLinhas((array) ($payload['observacoes_finais'] ?? [])),
+        'disclaimer'  => LAUDO_DISCLAIMER,
+        'local_data'  => laudoLocalDataLinha($cabecalho),
+    ];
+}
+
+/**
+ * Sanitiza um laudo estruturado EDITADO (vindo da previa editavel do navegador)
+ * para o formato que gerarLaudoPdf() espera — o mesmo shape de
+ * montarLaudoEstruturado(). Cada secao de prosa vira lista de linhas nao-vazias;
+ * os textos fixos (titulo, disclaimer) caem no padrao se vierem vazios. Assim o
+ * texto que a medica ajustou no navegador vira PDF SEM recompor as frases dos
+ * compositores, mantendo o timbrado intacto.
+ *
+ * @param array<string,mixed> $laudo Laudo estruturado (possivelmente editado).
+ * @return array{cabecalho:array<string,mixed>,titulo:string,orgaos:array<string>,impressao:array<string>,observacoes:array<string>,disclaimer:string,local_data:string}
+ */
+function laudoEditadoParaPdf(array $laudo): array
+{
+    $lista = static function ($valor): array {
+        $itens = [];
+        foreach ((is_array($valor) ? $valor : []) as $item) {
+            $s = trim((string) $item);
+            if ($s !== '') { $itens[] = $s; }
+        }
+        return $itens;
+    };
+    $texto = static fn($v, string $padrao): string => trim((string) ($v ?? '')) !== '' ? (string) $v : $padrao;
+
+    return [
+        'cabecalho'   => is_array($laudo['cabecalho'] ?? null) ? $laudo['cabecalho'] : [],
+        'titulo'      => $texto($laudo['titulo'] ?? null, LAUDO_TITULO),
+        'orgaos'      => $lista($laudo['orgaos'] ?? []),
+        'impressao'   => $lista($laudo['impressao'] ?? []),
+        'observacoes' => $lista($laudo['observacoes'] ?? []),
+        'disclaimer'  => $texto($laudo['disclaimer'] ?? null, LAUDO_DISCLAIMER),
+        'local_data'  => (string) ($laudo['local_data'] ?? ''),
+    ];
 }

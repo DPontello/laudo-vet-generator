@@ -25,16 +25,15 @@ function checa(string $rotulo, bool $ok, string $detalhe = ''): void
     echo "FALHA  {$rotulo}" . ($detalhe !== '' ? "  ({$detalhe})" : '') . "\n";
 }
 
-/** JPEG de amostra (bytes) gerado via gd, para simular imagem anexada. */
-function jpegDeAmostra(int $largura, int $altura, array $rgb): string
+/** JPEG de amostra (bytes) lido das fixtures — nao depende da extensao gd. */
+function jpegDeAmostra(string $nome): string
 {
-    $img = imagecreatetruecolor($largura, $altura);
-    $cor = imagecolorallocate($img, $rgb[0], $rgb[1], $rgb[2]);
-    imagefilledrectangle($img, 0, 0, $largura, $altura, $cor);
-    ob_start();
-    imagejpeg($img, null, 85);
-    $bytes = (string) ob_get_clean();
-    imagedestroy($img);
+    $caminho = __DIR__ . '/fixtures/' . $nome;
+    $bytes = file_get_contents($caminho);
+    if ($bytes === false || $bytes === '') {
+        fwrite(STDERR, "fixture ausente: {$caminho}\n");
+        exit(1);
+    }
     return $bytes;
 }
 
@@ -68,14 +67,14 @@ $payload = [
     'observacoes_finais' => ['A repleção gastrointestinal por conteúdo gasoso impede a avaliação completa.'],
 ];
 
-$laudo = montarLaudo($payload);
+$estrutura = montarLaudoEstruturado($payload);
 
 // Conta temporarios de imagem antes (para checar limpeza depois).
 $padraoTmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'laudo_img_*';
 $antes = count(glob($padraoTmp) ?: []);
 
-$imagens = [jpegDeAmostra(400, 300, [90, 140, 200]), jpegDeAmostra(300, 400, [200, 120, 90])];
-$pdf = gerarLaudoPdf($laudo, $imagens);
+$imagens = [jpegDeAmostra('imagem-amostra-1.jpg'), jpegDeAmostra('imagem-amostra-2.jpg')];
+$pdf = gerarLaudoPdf($estrutura, $imagens);
 
 checa('PDF nao vazio', strlen($pdf) > 0, 'bytes=' . strlen($pdf));
 checa('assinatura %PDF', substr($pdf, 0, 4) === '%PDF');
@@ -88,7 +87,7 @@ $depois = count(glob($padraoTmp) ?: []);
 checa('imagens temporarias removidas', $depois === $antes, "antes={$antes} depois={$depois}");
 
 // Sem imagens: ainda gera PDF valido.
-$pdfSemImagens = gerarLaudoPdf($laudo);
+$pdfSemImagens = gerarLaudoPdf($estrutura);
 checa('PDF sem imagens', strlen($pdfSemImagens) > 0 && substr($pdfSemImagens, 0, 4) === '%PDF');
 
 echo "\nPDF de amostra: {$destino} (" . filesize($destino) . " bytes)\n";

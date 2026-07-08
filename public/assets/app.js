@@ -16,6 +16,22 @@ const GRAU = [['discreta', 'Discreta'], ['moderada', 'Moderada'], ['acentuada', 
 const GRAU_OPC = [['', '—'], ['discreta', 'Discreta'], ['moderada', 'Moderada'], ['acentuada', 'Acentuada']];
 const LADO = [['esquerdo', 'Esquerdo'], ['direito', 'Direito'], ['bilateral', 'Bilateral']];
 
+/* ---------- Biblioteca de observacoes finais padrao ----------
+ * Notas reutilizaveis do rodape do modelo (docs/referencia/modelo-laudo-aline.txt).
+ * O texto ainda pode ser refinado na previa editavel antes de gerar o PDF. */
+const OBSERVACOES_PADRAO = [
+    'A repleção gastrointestinal por conteúdo gasoso e consequente formação de artefato de reverberação impedem sua avaliação completa e de seu conteúdo e a visibilização de possíveis corpos sólidos.',
+    'Paciente extremamente agitado(a) e apresentando acentuada quantidade de gás difusamente distribuído por todo o trato gastrointestinal, dificultando a adequada avaliação das estruturas abdominais. Sugere-se repetição do exame com preparo com simeticona e jejum prévios.',
+    'A avaliação ultrassonográfica de órgãos profundos em cães de grande porte pode ser prejudicada pela limitação de frequência do equipamento.',
+    'A presença de líquido livre dificulta a adequada avaliação dos órgãos abdominais, devido à alteração de ecogenicidade provocada pelo fenômeno de reforço acústico, além da possível alteração de suas topografias.',
+    'Devido à acentuada distensão uterina, não foi possível avaliar adequadamente todas as estruturas abdominais.',
+    'A organomegalia e a presença de estruturas em topografia não usual podem comprometer a adequada avaliação das demais estruturas abdominais.',
+    'Sugere-se acompanhamento ultrassonográfico.',
+    'Sugere-se exame radiográfico.',
+    'Sugere-se EcoDopplercardiograma.',
+    'Sugere-se exame endoscópico.',
+];
+
 /* ---------- Config dos orgaos (espelha o schema) ---------- */
 const ORGAOS = [
     { orgao: 'bexiga', titulo: 'Bexiga', avaliavel: true, campos: [
@@ -336,6 +352,9 @@ function renderOrgaos() {
         } else if (org.blocos) {
             org.blocos.forEach((b) => body.appendChild(renderBloco(org.orgao, b)));
         }
+        // Container das opcoes personalizadas (checklists criados pela medica).
+        const custom = el('div', 'orgao__custom'); custom.id = 'custom_' + org.orgao;
+        body.appendChild(custom);
         det.appendChild(body);
         cont.appendChild(det);
     });
@@ -352,6 +371,153 @@ function renderBloco(orgao, bloco) {
     bloco.children.forEach((c) => renderNode(c, id, grid));
     box.appendChild(grid);
     return box;
+}
+
+/* ---------- Observacoes finais (checklist da biblioteca) ---------- */
+function renderObservacoesOpcoes() {
+    const box = document.getElementById('observacoes-opcoes');
+    if (!box) return;
+    OBSERVACOES_PADRAO.forEach((texto) => {
+        const lbl = el('label', 'obs-opcao');
+        const inp = el('input'); inp.type = 'checkbox'; inp.className = 'obs-check'; inp.value = texto;
+        lbl.appendChild(inp); lbl.appendChild(el('span', null, texto));
+        box.appendChild(lbl);
+    });
+}
+
+/** Observacoes finais coletadas: notas padrao + personalizadas marcadas + campo livre. */
+function coletarObservacoesFinais() {
+    const marcadas = Array.from(document.querySelectorAll('.obs-check:checked')).map((c) => c.value);
+    const custom = customChecadas('observacoes_finais');
+    const livres = document.getElementById('observacoes_finais').value
+        .split('\n').map((s) => s.trim()).filter((s) => s !== '');
+    return marcadas.concat(custom, livres);
+}
+
+/* ---------- Checklists personalizados (criados pela medica, salvos no servidor) ---------- */
+const SECOES_LABEL = {
+    bexiga: 'Bexiga', rins: 'Rins', adrenais: 'Adrenais', figado: 'Fígado',
+    vesicula_biliar: 'Vesícula Biliar', baco: 'Baço', estomago: 'Estômago',
+    intestinos: 'Intestinos', pancreas: 'Pâncreas', reprodutor: 'Sistema Reprodutor',
+    cavidade_abdominal: 'Cavidade Abdominal', observacoes_finais: 'Observações finais',
+};
+
+let checklistsCustom = {};   // { secao: [{id, label, texto}] } carregado do servidor
+
+/** Frases marcadas de uma secao (checkboxes personalizados). */
+function customChecadas(secao) {
+    return Array.from(document.querySelectorAll('.custom-check[data-secao="' + secao + '"]:checked'))
+        .map((c) => c.value);
+}
+
+/** Carrega os checklists personalizados do servidor e os injeta nas secoes. */
+async function carregarChecklistsCustom() {
+    try {
+        const resp = await fetch('?checklists', { headers: { 'Accept': 'application/json' } });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        checklistsCustom = (data && !Array.isArray(data)) ? data : {};
+    } catch (e) {
+        checklistsCustom = {};
+    }
+    renderCustomTodasSecoes();
+}
+
+/** (Re)desenha as caixas personalizadas em todas as secoes. */
+function renderCustomTodasSecoes() {
+    Object.keys(SECOES_LABEL).forEach((secao) => {
+        const box = document.getElementById('custom_' + secao);
+        if (!box) return;
+        box.innerHTML = '';
+        (checklistsCustom[secao] || []).forEach((item) => {
+            const lbl = el('label', 'obs-opcao');
+            const inp = el('input'); inp.type = 'checkbox'; inp.className = 'custom-check';
+            inp.value = item.texto; inp.dataset.secao = secao;
+            lbl.appendChild(inp); lbl.appendChild(el('span', null, item.label || item.texto));
+            lbl.title = item.texto;
+            box.appendChild(lbl);
+        });
+    });
+}
+
+/* ----- Modal de gerenciamento dos checklists ----- */
+let configTrabalho = {};   // copia de trabalho editada no modal
+
+function abrirConfig() {
+    configTrabalho = JSON.parse(JSON.stringify(checklistsCustom || {}));
+    const sel = document.getElementById('config-secao');
+    if (!sel.options.length) {
+        Object.keys(SECOES_LABEL).forEach((secao) => {
+            const o = el('option', null, SECOES_LABEL[secao]); o.value = secao; sel.appendChild(o);
+        });
+    }
+    renderConfigItens(sel.value || Object.keys(SECOES_LABEL)[0]);
+    document.getElementById('config-modal').hidden = false;
+    document.body.classList.add('modal-aberto');
+}
+
+function fecharConfig() {
+    document.getElementById('config-modal').hidden = true;
+    document.body.classList.remove('modal-aberto');
+}
+
+/** Renderiza as linhas editaveis dos itens da secao selecionada. */
+function renderConfigItens(secao) {
+    const cont = document.getElementById('config-itens');
+    cont.innerHTML = '';
+    const itens = configTrabalho[secao] || (configTrabalho[secao] = []);
+    if (!itens.length) {
+        cont.appendChild(el('p', 'hint', 'Nenhum item nesta seção ainda. Clique em "Adicionar item".'));
+    }
+    itens.forEach((item, i) => {
+        const row = el('div', 'config-item');
+        const rot = el('input'); rot.type = 'text'; rot.className = 'config-item__label';
+        rot.placeholder = 'Rótulo (opcional)'; rot.value = item.label || '';
+        rot.addEventListener('input', () => { item.label = rot.value; });
+        const txt = el('textarea'); txt.className = 'config-item__texto'; txt.rows = 2;
+        txt.placeholder = 'Texto que entra no laudo ao marcar esta opção';
+        txt.value = item.texto || '';
+        txt.addEventListener('input', () => { item.texto = txt.value; });
+        const rm = el('button', 'btn btn--ghost config-item__rm', '×'); rm.type = 'button';
+        rm.title = 'Remover item';
+        rm.addEventListener('click', () => { itens.splice(i, 1); renderConfigItens(secao); });
+        row.appendChild(rot); row.appendChild(txt); row.appendChild(rm);
+        cont.appendChild(row);
+    });
+}
+
+function configAdicionarItem() {
+    const secao = document.getElementById('config-secao').value;
+    (configTrabalho[secao] || (configTrabalho[secao] = [])).push({ id: '', label: '', texto: '' });
+    renderConfigItens(secao);
+}
+
+async function salvarConfig() {
+    const btn = document.getElementById('config-salvar');
+    btn.disabled = true;
+    mostrarStatus('Salvando checklists…');
+    try {
+        const resp = await fetch('?checklists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(configTrabalho),
+        });
+        if (!resp.ok) {
+            let msg = 'Falha (' + resp.status + ').';
+            try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch (e) { /* ignore */ }
+            mostrarStatus(msg, 'err');
+            return;
+        }
+        const salvo = await resp.json();
+        checklistsCustom = (salvo && !Array.isArray(salvo)) ? salvo : {};
+        renderCustomTodasSecoes();
+        fecharConfig();
+        mostrarStatus('Checklists salvos.', 'ok');
+    } catch (e) {
+        mostrarStatus('Erro: ' + e.message, 'err');
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 /* ---------- Tudo Normal (defaults do schema) ---------- */
@@ -381,6 +547,11 @@ function tudoNormal() {
             const a = document.getElementById(id + '_avaliado'); if (a) a.checked = false;
             b.children.forEach((c) => aplicarDefault(c, id));
         });
+    });
+    // Achados personalizados de orgao contradizem "normal"; as observacoes finais
+    // (limitacoes do exame) ficam como estao.
+    document.querySelectorAll('.custom-check').forEach((c) => {
+        if (c.dataset.secao !== 'observacoes_finais') c.checked = false;
     });
     mostrarStatus('Preenchido com os padrões de normalidade.', 'ok');
 }
@@ -445,6 +616,11 @@ function coletarPayload() {
             b.children.forEach((c) => coletarNode(c, id, bloco));
             obj[b.k] = bloco;
         });
+        // Frases dos checklists personalizados entram pelo texto livre do orgao.
+        const extra = customChecadas(org.orgao);
+        if (extra.length) {
+            obj.observacoes = [obj.observacoes].concat(extra).filter((s) => s && String(s).trim() !== '').join(' ');
+        }
         orgaos[org.orgao] = obj;
     });
 
@@ -454,15 +630,45 @@ function coletarPayload() {
         cabecalho: cab,
         orgaos: orgaos,
         impressao_diagnostica: linhas('impressao_diagnostica'),
-        observacoes_finais: linhas('observacoes_finais'),
+        observacoes_finais: coletarObservacoesFinais(),
     };
 }
 
-/* ---------- Imagens (base64) ---------- */
+/* ---------- Imagens (arquivos originais, sem recompressao) ---------- */
+const imagensSelecionadas = [];   // File[] acumulados entre escolhas
+
+function aoEscolherImagens(ev) {
+    const arquivos = Array.from(ev.target.files || []);
+    const aceitas = arquivos.filter((f) => f.type === 'image/jpeg');
+    aceitas.forEach((f) => imagensSelecionadas.push(f));
+    ev.target.value = '';   // permite escolher o mesmo arquivo de novo depois de remover
+    renderPreviewImagens();
+    const recusadas = arquivos.length - aceitas.length;
+    if (recusadas > 0) mostrarStatus(recusadas + ' arquivo(s) ignorado(s): apenas JPEG é aceito.', 'err');
+}
+
+function renderPreviewImagens() {
+    const box = document.getElementById('imagens-preview');
+    box.querySelectorAll('img').forEach((img) => URL.revokeObjectURL(img.src));
+    box.innerHTML = '';
+    imagensSelecionadas.forEach((f, i) => {
+        const fig = el('figure', 'thumb');
+        const img = el('img');
+        img.src = URL.createObjectURL(f);
+        img.alt = f.name;
+        const rm = el('button', 'thumb__rm', '×');
+        rm.type = 'button';
+        rm.title = 'Remover ' + f.name;
+        rm.addEventListener('click', () => { imagensSelecionadas.splice(i, 1); renderPreviewImagens(); });
+        fig.appendChild(img);
+        fig.appendChild(rm);
+        fig.appendChild(el('figcaption', 'thumb__nome', f.name));
+        box.appendChild(fig);
+    });
+}
+
 function lerImagens() {
-    const input = document.getElementById('imagens');
-    const arquivos = Array.from(input.files || []);
-    return Promise.all(arquivos.map((f) => new Promise((resolve, reject) => {
+    return Promise.all(imagensSelecionadas.map((f) => new Promise((resolve, reject) => {
         const r = new FileReader();
         r.onload = () => { const s = String(r.result); resolve(s.slice(s.indexOf(',') + 1)); };
         r.onerror = reject;
@@ -471,6 +677,29 @@ function lerImagens() {
 }
 
 /* ---------- Submissao ---------- */
+/** POST do corpo (payload cru OU com laudo ja editado) e baixa o PDF retornado. */
+async function enviarPdf(body) {
+    const resp = await fetch('', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/pdf' },
+        body: JSON.stringify(body),
+    });
+
+    if (!resp.ok) {
+        let msg = 'Falha (' + resp.status + ').';
+        try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch (e) { /* ignore */ }
+        mostrarStatus(msg, 'err');
+        return false;
+    }
+
+    const blob = await resp.blob();
+    const disp = resp.headers.get('Content-Disposition') || '';
+    const m = disp.match(/filename="([^"]+)"/);
+    baixar(blob, m ? m[1] : 'laudo.pdf');
+    mostrarStatus('PDF gerado.', 'ok');
+    return true;
+}
+
 async function gerarPdf(ev) {
     if (ev) ev.preventDefault();
     const btn = document.getElementById('btn-gerar');
@@ -479,30 +708,94 @@ async function gerarPdf(ev) {
     try {
         const payload = coletarPayload();
         payload.imagens = await lerImagens();
+        await enviarPdf(payload);
+    } catch (e) {
+        mostrarStatus('Erro: ' + e.message, 'err');
+    } finally {
+        btn.disabled = false;
+    }
+}
 
+/* ---------- Previa editavel ---------- */
+let previaLaudo = null;   // laudo estruturado composto pelo servidor (para reconstruir no envio)
+
+/** Abre o laudo composto pelo servidor num editor de texto (sem gerar PDF ainda). */
+async function abrirPrevia() {
+    const btn = document.getElementById('btn-previa');
+    btn.disabled = true;
+    mostrarStatus('Montando prévia…');
+    try {
+        const payload = coletarPayload();
+        payload.modo = 'previa';
         const resp = await fetch('', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/pdf' },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify(payload),
         });
-
         if (!resp.ok) {
             let msg = 'Falha (' + resp.status + ').';
             try { const j = await resp.json(); if (j && j.error) msg = j.error; } catch (e) { /* ignore */ }
             mostrarStatus(msg, 'err');
             return;
         }
-
-        const blob = await resp.blob();
-        const disp = resp.headers.get('Content-Disposition') || '';
-        const m = disp.match(/filename="([^"]+)"/);
-        baixar(blob, m ? m[1] : 'laudo.pdf');
-        mostrarStatus('PDF gerado.', 'ok');
+        preencherPrevia(await resp.json());
+        abrirModal();
+        mostrarStatus('Prévia pronta. Ajuste o texto e gere o PDF.', 'ok');
     } catch (e) {
         mostrarStatus('Erro: ' + e.message, 'err');
     } finally {
         btn.disabled = false;
     }
+}
+
+function preencherPrevia(laudo) {
+    previaLaudo = laudo || {};
+    const c = previaLaudo.cabecalho || {};
+    document.getElementById('previa-cabecalho').textContent =
+        [c.paciente, c.especie, c.raca, c.sexo, c.idade].filter(Boolean).join('  ·  ');
+    document.getElementById('previa-orgaos').value = (previaLaudo.orgaos || []).join('\n\n');
+    document.getElementById('previa-impressao').value = (previaLaudo.impressao || []).join('\n');
+    document.getElementById('previa-observacoes').value = (previaLaudo.observacoes || []).join('\n');
+}
+
+/** Gera o PDF a partir do texto editado na previa (envia o laudo ja composto). */
+async function gerarPdfDaPrevia() {
+    if (!previaLaudo) return;
+    const btn = document.getElementById('previa-gerar');
+    btn.disabled = true;
+    mostrarStatus('Gerando PDF…');
+    try {
+        const porLinha = (id) => document.getElementById(id).value.split('\n').map((s) => s.trim()).filter((s) => s !== '');
+        const porBloco = (id) => document.getElementById(id).value.split(/\n\s*\n/).map((s) => s.trim()).filter((s) => s !== '');
+
+        const body = coletarPayload();   // mantem cabecalho/orgaos para a validacao do servidor
+        body.laudo = {
+            cabecalho: previaLaudo.cabecalho || {},
+            titulo: previaLaudo.titulo,
+            orgaos: porBloco('previa-orgaos'),
+            impressao: porLinha('previa-impressao'),
+            observacoes: porLinha('previa-observacoes'),
+            disclaimer: previaLaudo.disclaimer,
+            local_data: previaLaudo.local_data,
+        };
+        body.imagens = await lerImagens();
+        if (await enviarPdf(body)) fecharModal();
+    } catch (e) {
+        mostrarStatus('Erro: ' + e.message, 'err');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function abrirModal() {
+    document.getElementById('previa-modal').hidden = false;
+    document.body.classList.add('modal-aberto');
+    document.getElementById('previa-orgaos').focus();
+}
+
+function fecharModal() {
+    document.getElementById('previa-modal').hidden = true;
+    document.body.classList.remove('modal-aberto');
 }
 
 function baixar(blob, nome) {
@@ -522,6 +815,19 @@ function mostrarStatus(msg, tipo) {
     statusTimer = setTimeout(() => { s.className = 'status'; }, 3500);
 }
 
+/* ---------- Tema (claro / escuro) ---------- */
+function aplicarTema(tema) {
+    document.documentElement.dataset.theme = tema;
+    try { localStorage.setItem('laudo_tema', tema); } catch (e) { /* ignore */ }
+    const btn = document.getElementById('btn-tema');
+    if (btn) btn.textContent = tema === 'dark' ? '☾ Escuro' : '☀ Claro';
+}
+
+function alternarTema() {
+    const atual = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+    aplicarTema(atual === 'dark' ? 'light' : 'dark');
+}
+
 /* ---------- Navegacao por teclado ---------- */
 function navTeclado(ev) {
     if (ev.key !== 'Enter') return;
@@ -537,11 +843,31 @@ function navTeclado(ev) {
 /* ---------- Init ---------- */
 document.addEventListener('DOMContentLoaded', () => {
     renderOrgaos();
+    renderObservacoesOpcoes();
+    aplicarTema(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+    carregarChecklistsCustom();
+
+    document.getElementById('btn-tema').addEventListener('click', alternarTema);
+    document.getElementById('btn-config').addEventListener('click', abrirConfig);
     document.getElementById('btn-tudo-normal').addEventListener('click', tudoNormal);
+    document.getElementById('btn-previa').addEventListener('click', abrirPrevia);
+    document.getElementById('imagens').addEventListener('change', aoEscolherImagens);
     document.getElementById('form-laudo').addEventListener('submit', gerarPdf);
     document.getElementById('form-laudo').addEventListener('keydown', navTeclado);
+
+    document.getElementById('previa-gerar').addEventListener('click', gerarPdfDaPrevia);
+    document.querySelectorAll('#previa-modal [data-fechar]').forEach((e) => e.addEventListener('click', fecharModal));
+
+    document.getElementById('config-secao').addEventListener('change', (e) => renderConfigItens(e.target.value));
+    document.getElementById('config-add').addEventListener('click', configAdicionarItem);
+    document.getElementById('config-salvar').addEventListener('click', salvarConfig);
+    document.querySelectorAll('#config-modal [data-fechar-config]').forEach((e) => e.addEventListener('click', fecharConfig));
+
     document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !document.getElementById('config-modal').hidden) { fecharConfig(); return; }
+        if (e.key === 'Escape' && !document.getElementById('previa-modal').hidden) { fecharModal(); return; }
         if (e.altKey && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); tudoNormal(); }
         if (e.altKey && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); gerarPdf(); }
+        if (e.altKey && (e.key === 'p' || e.key === 'P')) { e.preventDefault(); abrirPrevia(); }
     });
 });
