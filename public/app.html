@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Gerador de Laudo — Ultrassonografia Veterinária</title>
     <link rel="stylesheet" href="/assets/styles.css">
+    <!-- Aplica o tema salvo antes da pintura (evita "flash"); padrao claro. -->
+    <script>try{document.documentElement.dataset.theme=localStorage.getItem('laudo_tema')||'light';}catch(e){document.documentElement.dataset.theme='light';}</script>
 </head>
 <body>
     <header class="topbar">
@@ -13,6 +15,7 @@
             <span class="topbar__sub">Aline Marques de Souza — CRMV-MG 31116</span>
         </div>
         <div class="topbar__actions">
+            <button type="button" id="btn-tema" class="btn btn--ghost" title="Alterna entre tema claro e escuro">☀ Claro</button>
             <button type="button" id="btn-tudo-normal" class="btn btn--ghost" title="Preenche as descrições padrão de órgãos saudáveis (Alt+N)">Tudo Normal</button>
             <button type="submit" form="form-laudo" id="btn-gerar" class="btn btn--primary" title="Gera o PDF (Alt+G)">Gerar PDF</button>
         </div>

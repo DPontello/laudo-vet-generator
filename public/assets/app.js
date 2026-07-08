@@ -552,6 +552,19 @@ function mostrarStatus(msg, tipo) {
     statusTimer = setTimeout(() => { s.className = 'status'; }, 3500);
 }
 
+/* ---------- Tema (claro / escuro) ---------- */
+function aplicarTema(tema) {
+    document.documentElement.dataset.theme = tema;
+    try { localStorage.setItem('laudo_tema', tema); } catch (e) { /* ignore */ }
+    const btn = document.getElementById('btn-tema');
+    if (btn) btn.textContent = tema === 'dark' ? '☾ Escuro' : '☀ Claro';
+}
+
+function alternarTema() {
+    const atual = document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+    aplicarTema(atual === 'dark' ? 'light' : 'dark');
+}
+
 /* ---------- Navegacao por teclado ---------- */
 function navTeclado(ev) {
     if (ev.key !== 'Enter') return;
@@ -567,6 +580,8 @@ function navTeclado(ev) {
 /* ---------- Init ---------- */
 document.addEventListener('DOMContentLoaded', () => {
     renderOrgaos();
+    aplicarTema(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+    document.getElementById('btn-tema').addEventListener('click', alternarTema);
     document.getElementById('btn-tudo-normal').addEventListener('click', tudoNormal);
     document.getElementById('imagens').addEventListener('change', aoEscolherImagens);
     document.getElementById('form-laudo').addEventListener('submit', gerarPdf);

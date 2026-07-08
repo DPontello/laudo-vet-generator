@@ -13,18 +13,17 @@
     --focus: 0 0 0 3px rgba(31, 111, 235, .35);
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #0f1420;
-        --card: #171d2b;
-        --ink: #e7ecf3;
-        --muted: #9aa6b6;
-        --line: #2a3346;
-        --brand: #4c8dff;
-        --ok: #4ad295;
-        --err: #ff7a6b;
-        --shadow: none;
-    }
+/* Tema escuro: aplicado por escolha explicita (botao), padrao e o claro acima. */
+:root[data-theme="dark"] {
+    --bg: #0f1420;
+    --card: #171d2b;
+    --ink: #e7ecf3;
+    --muted: #9aa6b6;
+    --line: #2a3346;
+    --brand: #4c8dff;
+    --ok: #4ad295;
+    --err: #ff7a6b;
+    --shadow: none;
 }
 
 * { box-sizing: border-box; }
