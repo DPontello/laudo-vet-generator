@@ -16,6 +16,7 @@
         </div>
         <div class="topbar__actions">
             <button type="button" id="btn-tema" class="btn btn--ghost" title="Alterna entre tema claro e escuro">☀ Claro</button>
+            <button type="button" id="btn-config" class="btn btn--ghost" title="Criar/editar checklists personalizados por seção">⚙ Checklists</button>
             <button type="button" id="btn-tudo-normal" class="btn btn--ghost" title="Preenche as descrições padrão de órgãos saudáveis (Alt+N)">Tudo Normal</button>
             <button type="button" id="btn-previa" class="btn btn--ghost" title="Abre o laudo em um editor para ajustar o texto (Alt+P)">Prévia editável</button>
             <button type="submit" form="form-laudo" id="btn-gerar" class="btn btn--primary" title="Gera o PDF (Alt+G)">Gerar PDF</button>
@@ -59,6 +60,7 @@
                 <h2 class="card__title">Observações finais</h2>
                 <p class="hint">Marque as observações padrão aplicáveis; use o campo abaixo para notas específicas (uma por linha).</p>
                 <div id="observacoes-opcoes" class="obs-lista"></div>
+                <div id="custom_observacoes_finais" class="obs-lista obs-lista--custom"></div>
                 <label class="field field--wide obs-livre"><span>Outras observações</span>
                     <textarea id="observacoes_finais" rows="3" placeholder="Uma observação por linha."></textarea>
                 </label>
@@ -100,6 +102,29 @@
             <footer class="modal__foot">
                 <button type="button" class="btn btn--ghost" data-fechar>Fechar</button>
                 <button type="button" id="previa-gerar" class="btn btn--primary">Gerar PDF do texto editado</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Personalizar checklists: a médica cria opções de observação por seção -->
+    <div id="config-modal" class="modal" hidden>
+        <div class="modal__backdrop" data-fechar-config></div>
+        <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="config-titulo">
+            <header class="modal__head">
+                <h2 id="config-titulo" class="modal__title">Personalizar checklists <span class="modal__sub">— crie opções de observação por seção</span></h2>
+                <button type="button" class="modal__x" data-fechar-config title="Fechar (Esc)" aria-label="Fechar">×</button>
+            </header>
+            <div class="modal__body">
+                <label class="field field--wide"><span>Seção</span>
+                    <select id="config-secao"></select>
+                </label>
+                <p class="hint">Cada item vira uma caixa marcável na seção escolhida. Ao marcar, o texto entra no laudo (e ainda pode ser ajustado na prévia). O rótulo é opcional — sem ele, mostra o início do texto.</p>
+                <div id="config-itens"></div>
+                <button type="button" id="config-add" class="btn btn--ghost">+ Adicionar item</button>
+            </div>
+            <footer class="modal__foot">
+                <button type="button" class="btn btn--ghost" data-fechar-config>Cancelar</button>
+                <button type="button" id="config-salvar" class="btn btn--primary">Salvar</button>
             </footer>
         </div>
     </div>

@@ -17,8 +17,8 @@ require __DIR__ . '/../src/api/handler.php';
 
 $metodo = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
-// GET serve o formulario; ?health devolve o JSON de servico.
-if ($metodo === 'GET' && !isset($_GET['health'])) {
+// GET serve o formulario; ?health devolve o JSON de servico; ?checklists e a config.
+if ($metodo === 'GET' && !isset($_GET['health']) && !isset($_GET['checklists'])) {
     header('Content-Type: text/html; charset=utf-8');
     readfile(__DIR__ . '/app.html');
     return;
@@ -29,7 +29,12 @@ if ($corpo === false) {
     $corpo = '';
 }
 
-$resposta = tratarRequisicaoLaudo($metodo, $corpo);
+// Recurso de checklists personalizados (GET le / POST grava).
+if (isset($_GET['checklists'])) {
+    $resposta = tratarRequisicaoChecklists($metodo, $corpo);
+} else {
+    $resposta = tratarRequisicaoLaudo($metodo, $corpo);
+}
 
 http_response_code($resposta['status']);
 foreach ($resposta['headers'] as $chave => $valor) {

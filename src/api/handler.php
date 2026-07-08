@@ -24,6 +24,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../laudo.php';
 require_once __DIR__ . '/../pdf/gerarPdf.php';
+require_once __DIR__ . '/../checklists.php';
 
 /** Monta uma resposta JSON padronizada. */
 function respostaJson(int $status, array $dados): array
@@ -124,6 +125,43 @@ function nomeArquivoPdf(array $cabecalho): string
     $slug = preg_replace('/[^A-Za-z0-9]+/', '-', $ascii);
     $slug = trim((string) $slug, '-');
     return 'laudo-' . ($slug !== '' ? strtolower($slug) : 'paciente') . '.pdf';
+}
+
+/**
+ * Trata o recurso de checklists personalizados (config da propria medica).
+ * GET devolve a config salva; POST/PUT valida e grava. Rota: ?checklists.
+ *
+ * @param string $metodo     Metodo HTTP.
+ * @param string $corpoBruto  Corpo bruto (php://input) — usado no POST/PUT.
+ * @return array{status:int, headers:array<string,string>, body:string}
+ */
+function tratarRequisicaoChecklists(string $metodo, string $corpoBruto): array
+{
+    $metodo = strtoupper($metodo);
+
+    if ($metodo === 'GET') {
+        return respostaJson(200, carregarChecklists());
+    }
+    if ($metodo !== 'POST' && $metodo !== 'PUT') {
+        return respostaJson(405, ['error' => 'Use GET para ler ou POST para salvar os checklists.']);
+    }
+    if (trim($corpoBruto) === '') {
+        return respostaJson(400, ['error' => 'Corpo da requisicao vazio.']);
+    }
+    $dados = json_decode($corpoBruto, true);
+    if (!is_array($dados)) {
+        return respostaJson(400, ['error' => 'Corpo da requisicao nao e um JSON valido.']);
+    }
+    $erro = validarChecklists($dados);
+    if ($erro !== null) {
+        return respostaJson(400, ['error' => $erro]);
+    }
+    try {
+        $salvo = salvarChecklists($dados);
+    } catch (\Throwable $e) {
+        return respostaJson(500, ['error' => 'Falha ao salvar os checklists: ' . $e->getMessage()]);
+    }
+    return respostaJson(200, $salvo);
 }
 
 /**

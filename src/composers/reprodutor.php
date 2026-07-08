@@ -186,5 +186,10 @@ function composeReprodutor(array $r): string
         if ($bloco !== '') { $blocos[] = $bloco; }
     }
 
+    // Observacoes livres (excecoes / checklists personalizados) entram como
+    // paragrafo proprio ao final da secao, como nos demais orgaos (decisao Hibrido).
+    $obs = trim((string) ($r['observacoes'] ?? ''));
+    if ($obs !== '') { $blocos[] = $obs; }
+
     return implode("\n\n", $blocos);
 }

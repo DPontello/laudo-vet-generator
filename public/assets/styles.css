@@ -211,6 +211,20 @@ textarea { resize: vertical; }
 .previa-cab { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; }
 body.modal-aberto { overflow: hidden; }
 
+/* Itens editaveis do gerenciador de checklists ---------------------------- */
+.config-item {
+    display: grid; grid-template-columns: minmax(120px, 1fr) 2fr auto; gap: 8px;
+    align-items: start; margin-bottom: 8px;
+}
+.config-item__rm { padding: 8px 12px; align-self: start; }
+@media (max-width: 560px) { .config-item { grid-template-columns: 1fr auto; } .config-item__texto { grid-column: 1 / -1; } }
+
+/* Caixas personalizadas dentro dos orgaos --------------------------------- */
+.orgao__custom { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.orgao__custom:empty { display: none; }
+.obs-lista--custom:empty { display: none; }
+.obs-lista--custom { margin-top: -6px; }
+
 /* Status ----------------------------------------------------------------- */
 .status {
     position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(20px);
