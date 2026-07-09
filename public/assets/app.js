@@ -316,6 +316,7 @@ function achadoRow() {
     const med = el('input'); med.type = 'number'; med.step = '0.01'; med.min = '0'; med.placeholder = 'cm'; med.className = 'achado-medida';
     row.appendChild(med);
     const rm = el('button', 'btn btn--ghost', '×'); rm.type = 'button';
+    rm.title = 'Remover achado'; rm.setAttribute('aria-label', 'Remover achado');
     rm.addEventListener('click', () => row.remove());
     row.appendChild(rm);
     return row;
@@ -454,6 +455,7 @@ function abrirConfig() {
     renderConfigItens(sel.value || Object.keys(SECOES_LABEL)[0]);
     document.getElementById('config-modal').hidden = false;
     document.body.classList.add('modal-aberto');
+    sel.focus();   // move o foco para dentro do modal (acessibilidade)
 }
 
 function fecharConfig() {
@@ -479,7 +481,7 @@ function renderConfigItens(secao) {
         txt.value = item.texto || '';
         txt.addEventListener('input', () => { item.texto = txt.value; });
         const rm = el('button', 'btn btn--ghost config-item__rm', '×'); rm.type = 'button';
-        rm.title = 'Remover item';
+        rm.title = 'Remover item'; rm.setAttribute('aria-label', 'Remover item');
         rm.addEventListener('click', () => { itens.splice(i, 1); renderConfigItens(secao); });
         row.appendChild(rot); row.appendChild(txt); row.appendChild(rm);
         cont.appendChild(row);
@@ -658,7 +660,7 @@ function renderPreviewImagens() {
         img.alt = f.name;
         const rm = el('button', 'thumb__rm', '×');
         rm.type = 'button';
-        rm.title = 'Remover ' + f.name;
+        rm.title = 'Remover ' + f.name; rm.setAttribute('aria-label', 'Remover imagem ' + f.name);
         rm.addEventListener('click', () => { imagensSelecionadas.splice(i, 1); renderPreviewImagens(); });
         fig.appendChild(img);
         fig.appendChild(rm);
