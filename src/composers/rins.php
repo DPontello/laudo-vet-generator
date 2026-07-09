@@ -133,7 +133,7 @@ function composeRins(array $r): string
     $frases[] = $s2;
 
     // 3. Ecogenicidade cortical + ecotextura + relacao corticomedular.
-    $ecotextura = (($r['ecotextura'] ?? 'homogenea') === 'heterogenea') ? 'heterogênea' : 'homogênea';
+    $ecotextura = ecotexturaTexto($r['ecotextura'] ?? 'homogenea');
     if (($r['ecogenicidade_cortical'] ?? 'usual') === 'hiperecogenicidade_difusa') {
         $grau = $r['ecogenicidade_grau'] ?? null;
         $prefixo = $grau !== null

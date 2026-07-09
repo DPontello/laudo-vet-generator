@@ -50,9 +50,7 @@ function composeIntestinos(array $i): string
     if ($colon !== '') { $segmentos[] = "{$colon} em cólon"; }
 
     if ($segmentos) {
-        $ultimo = array_pop($segmentos);
-        $lista = $segmentos ? implode(', ', $segmentos) . ' e ' . $ultimo : $ultimo;
-        $s1 .= ', medindo aproximadamente ' . $lista;
+        $s1 .= ', medindo aproximadamente ' . listaPtBr($segmentos);
     }
     $frases[] = $s1 . '.';
 
