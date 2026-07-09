@@ -115,16 +115,90 @@ function decodificarImagens(array $imagensBase64): array
     return [$bytesImagens, null];
 }
 
-/** Nome de arquivo seguro para o PDF a partir do nome do paciente. */
-function nomeArquivoPdf(array $cabecalho): string
+/**
+ * Nome do paciente legivel e seguro para nome de arquivo: mantem espacos e a
+ * caixa original, apenas transliterando acentos (Windows) e removendo os
+ * caracteres proibidos em nomes de arquivo (< > : " / \ | ? * e controle).
+ */
+function nomePacienteArquivo(array $cabecalho): string
 {
     $paciente = trim((string) ($cabecalho['paciente'] ?? ''));
-    $base = $paciente !== '' ? $paciente : 'laudo';
-    $ascii = function_exists('iconv') ? @iconv('UTF-8', 'ASCII//TRANSLIT', $base) : $base;
-    $ascii = is_string($ascii) && $ascii !== '' ? $ascii : $base;
-    $slug = preg_replace('/[^A-Za-z0-9]+/', '-', $ascii);
-    $slug = trim((string) $slug, '-');
-    return 'laudo-' . ($slug !== '' ? strtolower($slug) : 'paciente') . '.pdf';
+    if ($paciente === '') { return 'Paciente'; }
+    $ascii = function_exists('iconv') ? @iconv('UTF-8', 'ASCII//TRANSLIT', $paciente) : $paciente;
+    $ascii = is_string($ascii) && $ascii !== '' ? $ascii : $paciente;
+    $limpo = preg_replace('#[<>:"/\\\\|?*\x00-\x1F]#', '', $ascii);
+    $limpo = trim((string) preg_replace('/\s+/', ' ', (string) $limpo));
+    return $limpo !== '' ? $limpo : 'Paciente';
+}
+
+/** Data do laudo formatada (DD-MM-AAAA) para o nome do arquivo. */
+function dataLaudoArquivo(array $cabecalho): string
+{
+    $data = trim((string) ($cabecalho['data_laudo'] ?? ($cabecalho['data_exame'] ?? '')));
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $data, $m)) {
+        return "{$m[3]}-{$m[2]}-{$m[1]}";
+    }
+    if ($data !== '') {
+        return str_replace(['/', '\\'], '-', $data);
+    }
+    return date('d-m-Y');
+}
+
+/**
+ * Nome base do laudo (sem extensao), no padrao pedido pela medica:
+ *   "LAUDO US - <paciente> - <data do laudo>".
+ * Usado tanto no arquivo baixado quanto na copia arquivada.
+ */
+function nomeBaseLaudo(array $cabecalho): string
+{
+    return 'LAUDO US - ' . nomePacienteArquivo($cabecalho) . ' - ' . dataLaudoArquivo($cabecalho);
+}
+
+/** Nome de arquivo do PDF baixado. */
+function nomeArquivoPdf(array $cabecalho): string
+{
+    return nomeBaseLaudo($cabecalho) . '.pdf';
+}
+
+/**
+ * Diretorio onde os laudos gerados sao arquivados (copia local para consulta
+ * posterior — o "armazenamento" da medica). Default: data/laudos na raiz do
+ * projeto — no Windows fica na propria pasta do app; no Docker e o volume
+ * persistente. Sobrescrevivel via LAUDO_ARQUIVO_DIR (os testes usam isso para
+ * nao tocar os dados reais).
+ */
+function arquivoLaudosDir(): string
+{
+    $env = getenv('LAUDO_ARQUIVO_DIR');
+    return ($env !== false && $env !== '') ? $env : dirname(__DIR__, 2) . '/data/laudos';
+}
+
+/**
+ * Arquiva uma copia do PDF gerado numa pasta local, para servir de historico.
+ * Guarda TODAS as versoes: o nome leva data e hora da geracao; se ja existir um
+ * arquivo com o mesmo nome (regeracao no mesmo segundo), acrescenta um sufixo
+ * incremental — nunca sobrescreve.
+ *
+ * Nao-fatal por design: se falhar (sem permissao, disco cheio), devolve null e
+ * a medica ainda recebe o PDF normalmente — o arquivamento nunca bloqueia o laudo.
+ *
+ * @return string|null Caminho do arquivo salvo, ou null se nao foi possivel salvar.
+ */
+function arquivarLaudoPdf(string $pdf, array $cabecalho): ?string
+{
+    $dir = arquivoLaudosDir();
+    if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+        return null;
+    }
+    $base = nomeBaseLaudo($cabecalho);
+    $dir = rtrim($dir, "/\\");
+    $caminho = $dir . DIRECTORY_SEPARATOR . $base . '.pdf';
+    $i = 2;
+    while (file_exists($caminho)) {
+        $caminho = $dir . DIRECTORY_SEPARATOR . $base . ' (' . $i . ').pdf';
+        $i++;
+    }
+    return @file_put_contents($caminho, $pdf) !== false ? $caminho : null;
 }
 
 /**
@@ -230,14 +304,25 @@ function tratarRequisicaoLaudo(string $metodo, string $corpoBruto): array
         return respostaJson(500, ['error' => 'Falha ao gerar o laudo: ' . $e->getMessage()]);
     }
 
-    $nome = nomeArquivoPdf((array) ($dados['cabecalho'] ?? []));
+    $cabecalho = (array) ($dados['cabecalho'] ?? []);
+    $nome = nomeArquivoPdf($cabecalho);
+
+    // Arquiva uma copia local do laudo (historico da medica). Nao-fatal: se
+    // falhar, ela ainda recebe o PDF; sinalizamos o resultado num header.
+    $arquivado = arquivarLaudoPdf($pdf, $cabecalho);
+
+    $headers = [
+        'Content-Type'        => 'application/pdf',
+        'Content-Disposition' => 'attachment; filename="' . $nome . '"',
+        'Content-Length'      => (string) strlen($pdf),
+    ];
+    if ($arquivado !== null) {
+        $headers['X-Laudo-Arquivado'] = basename($arquivado);
+    }
+
     return [
         'status'  => 200,
-        'headers' => [
-            'Content-Type'        => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="' . $nome . '"',
-            'Content-Length'      => (string) strlen($pdf),
-        ],
+        'headers' => $headers,
         'body'    => $pdf,
     ];
 }
