@@ -19,6 +19,9 @@ composer.lock
 # Dados do usuário (checklists personalizados criados pela médica)
 /data/
 
+# Pacote de distribuição gerado (montar-pacote.sh/.bat)
+/dist/
+
 # Ambiente / segredos
 .env
 .env.*
