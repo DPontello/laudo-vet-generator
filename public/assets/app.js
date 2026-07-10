@@ -120,13 +120,24 @@ const ORGAOS = [
     { orgao: 'intestinos', titulo: 'Intestinos', avaliavel: true, campos: [
         { t: 'bool', k: 'estratificacao_mantida', label: 'Estratificação mantida', def: true },
         { t: 'enum', k: 'parede', label: 'Parede', opts: [['normoespessa', 'Normoespessa'], ['espessada', 'Espessada']], def: 'normoespessa' },
+        // Padrao anatomico: define quais segmentos aparecem nas medidas (cão x gato).
+        { t: 'enum', k: 'padrao', label: 'Padrão anatômico', opts: [['cao', 'Cão'], ['gato', 'Gato']], def: 'cao' },
         { t: 'group', k: 'medidas', label: 'Medidas por segmento (cm)', children: [
+            // Duodeno e jejuno servem aos dois padroes; os demais aparecem conforme `padrao` (atributo `so`).
             { t: 'num', k: 'duodeno_min_cm', label: 'Duodeno mín.', max: 2 },
             { t: 'num', k: 'duodeno_max_cm', label: 'Duodeno máx.', max: 2 },
             { t: 'num', k: 'jejuno_min_cm', label: 'Jejuno mín.', max: 2 },
             { t: 'num', k: 'jejuno_max_cm', label: 'Jejuno máx.', max: 2 },
-            { t: 'num', k: 'colon_min_cm', label: 'Cólon mín.', max: 2 },
-            { t: 'num', k: 'colon_max_cm', label: 'Cólon máx.', max: 2 },
+            { t: 'num', k: 'colon_min_cm', label: 'Cólon mín.', max: 2, so: 'cao' },
+            { t: 'num', k: 'colon_max_cm', label: 'Cólon máx.', max: 2, so: 'cao' },
+            { t: 'num', k: 'ileo_min_cm', label: 'Íleo mín.', max: 2, so: 'gato' },
+            { t: 'num', k: 'ileo_max_cm', label: 'Íleo máx.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_ascendente_min_cm', label: 'Cólon ascendente mín.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_ascendente_max_cm', label: 'Cólon ascendente máx.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_transverso_min_cm', label: 'Cólon transverso mín.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_transverso_max_cm', label: 'Cólon transverso máx.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_descendente_min_cm', label: 'Cólon descendente mín.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_descendente_max_cm', label: 'Cólon descendente máx.', max: 2, so: 'gato' },
         ] },
         { t: 'bool', k: 'peristaltismo_preservado', label: 'Peristaltismo preservado', def: true },
         { t: 'bool', k: 'obstrucao_ausente', label: 'Ausência de obstrução', def: true },
@@ -255,6 +266,8 @@ function renderBool(node, id, container) {
 
 function renderNum(node, id, container) {
     const f = el('div', 'field field--sm');
+    // Campo condicional: aparece apenas para o padrao anatomico indicado em `so`.
+    if (node.so) f.dataset.so = node.so;
     f.appendChild(el('span', null, node.label));
     const inp = el('input'); inp.type = 'number'; inp.id = id; inp.step = '0.01'; inp.min = '0';
     if (node.max != null) inp.max = String(node.max);
@@ -358,6 +371,19 @@ function renderOrgaos() {
         body.appendChild(custom);
         det.appendChild(body);
         cont.appendChild(det);
+    });
+}
+
+/**
+ * Mostra/oculta os campos de medida dos Intestinos conforme o padrao anatomico
+ * escolhido (cão x gato). Campos marcados com data-so aparecem so no seu padrao;
+ * os sem marca (duodeno/jejuno) ficam sempre visiveis.
+ */
+function atualizarIntestinosPadrao() {
+    const sel = document.querySelector('input[name="intestinos_padrao"]:checked');
+    const padrao = sel ? sel.value : 'cao';
+    document.querySelectorAll('[data-so]').forEach((f) => {
+        f.hidden = (f.dataset.so !== padrao);
     });
 }
 
@@ -555,6 +581,8 @@ function tudoNormal() {
     document.querySelectorAll('.custom-check').forEach((c) => {
         if (c.dataset.secao !== 'observacoes_finais') c.checked = false;
     });
+    // aplicarDefault seta o radio direto (sem disparar change); resincroniza a visibilidade.
+    atualizarIntestinosPadrao();
     mostrarStatus('Preenchido com os padrões de normalidade.', 'ok');
 }
 
@@ -848,6 +876,10 @@ document.addEventListener('DOMContentLoaded', () => {
     renderObservacoesOpcoes();
     aplicarTema(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
     carregarChecklistsCustom();
+
+    // Intestinos: alterna os segmentos visiveis conforme o padrao anatomico (cão/gato).
+    document.querySelectorAll('input[name="intestinos_padrao"]').forEach((r) => r.addEventListener('change', atualizarIntestinosPadrao));
+    atualizarIntestinosPadrao();
 
     document.getElementById('btn-tema').addEventListener('click', alternarTema);
     document.getElementById('btn-config').addEventListener('click', abrirConfig);

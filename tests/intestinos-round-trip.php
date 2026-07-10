@@ -57,7 +57,34 @@ checa('Tudo Normal',
     . 'imagens sugestivas de processo obstrutivo ou corpo estranho intestinal.',
     composeIntestinos($normal));
 
-/* ---- Caso 3: nao avaliado ---- */
+/* ---- Caso 3: Gato (íleo + tres porcoes do cólon) ---- */
+$gato = [
+    'avaliado'                 => true,
+    'estratificacao_mantida'   => true,
+    'parede'                   => 'normoespessa',
+    'padrao'                   => 'gato',
+    'medidas'                  => [
+        'duodeno_min_cm' => 0.45, 'duodeno_max_cm' => 0.48,
+        'jejuno_min_cm'  => 0.31, 'jejuno_max_cm'  => 0.42,
+        'ileo_min_cm'    => 0.25, 'ileo_max_cm'    => 0.30,
+        'colon_ascendente_min_cm' => 0.20, 'colon_ascendente_max_cm' => 0.22,
+        'colon_transverso_min_cm' => 0.18, 'colon_transverso_max_cm' => 0.20,
+        'colon_descendente_min_cm' => 0.15, 'colon_descendente_max_cm' => 0.17,
+    ],
+    'peristaltismo_preservado' => true,
+    'obstrucao_ausente'        => true,
+];
+checa('Gato (6 segmentos)',
+    'INTESTINOS: Paredes com manutenção da estrutura laminar de camadas e normoespessas, medindo aproximadamente '
+    . '0,45 cm a 0,48 cm em duodeno, 0,31 cm a 0,42 cm em jejuno, 0,25 cm a 0,30 cm em íleo, '
+    . '0,20 cm a 0,22 cm em cólon ascendente, 0,18 cm a 0,20 cm em cólon transverso e '
+    . '0,15 cm a 0,17 cm em cólon descendente. Intestino delgado '
+    . 'repleto por discreta quantidade de gás e conteúdo pastoso. Movimentos peristálticos preservados. Cólon '
+    . 'repleto por gás e conteúdo ecogênico formador de sombreamento acústico posterior (fezes). Ausência de '
+    . 'imagens sugestivas de processo obstrutivo ou corpo estranho intestinal.',
+    composeIntestinos($gato));
+
+/* ---- Caso 4: nao avaliado ---- */
 checa('Nao avaliado', 'INTESTINOS: Não avaliados.', composeIntestinos(['avaliado' => false]));
 
 echo "\n--- Amostra: Clarinha ---\n" . composeIntestinos($clarinha) . "\n";
