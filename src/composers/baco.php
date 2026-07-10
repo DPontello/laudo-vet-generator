@@ -43,7 +43,7 @@ function composeBaco(array $b): string
         $grau    = substr($tamanho, strlen('esplenomegalia_')); // discreta|moderada|acentuada
         $aumento = grauAdjetivo($grau, 'm', 's');                // discreto|moderado|acentuado
         $rotulo  = grauAdjetivo($grau, 'f', 's');                // discreta|moderada|acentuada
-        $frases[] = "Aumento {$aumento} de tamanho, com bordas {$bordas} e contornos {$contornos} "
+        $frases[] = "Topografia e morfologia usuais. Aumento {$aumento} de tamanho, com bordas {$bordas} e contornos {$contornos} "
             . "(esplenomegalia {$rotulo}).";
     }
 
