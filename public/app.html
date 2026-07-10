@@ -53,6 +53,7 @@
             <section class="card">
                 <h2 class="card__title">Impressão diagnóstica</h2>
                 <p class="hint">Uma linha por item. Selecione um trecho e use <strong>N</strong>/<strong>S</strong> (ou Ctrl+B / Ctrl+U) para negrito/sublinhado.</p>
+                <div id="custom_impressao_diagnostica" class="obs-lista obs-lista--custom"></div>
                 <textarea id="impressao_diagnostica" rows="4" placeholder="Ex.: Hérnia umbilical."></textarea>
             </section>
 
@@ -87,6 +88,8 @@
                 <button type="button" class="modal__x" data-fechar title="Fechar (Esc)" aria-label="Fechar">×</button>
             </header>
             <div class="modal__body">
+                <!-- Preenchido dinamicamente por avisarSecoesPreservadas (app.js). -->
+                <p class="previa-aviso" id="previa-aviso" role="alert" hidden></p>
                 <p class="previa-cab" id="previa-cabecalho"></p>
                 <label class="field field--wide"><span>Órgãos — um bloco por parágrafo, separados por linha em branco</span>
                     <textarea id="previa-orgaos" rows="16"></textarea>

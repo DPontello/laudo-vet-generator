@@ -33,7 +33,7 @@ function checklistsArquivo(): string
 const CHECKLISTS_SECOES = [
     'bexiga', 'rins', 'adrenais', 'figado', 'vesicula_biliar', 'baco',
     'estomago', 'intestinos', 'pancreas', 'reprodutor', 'cavidade_abdominal',
-    'observacoes_finais',
+    'impressao_diagnostica', 'observacoes_finais',
 ];
 
 /**

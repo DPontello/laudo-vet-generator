@@ -426,7 +426,8 @@ const SECOES_LABEL = {
     bexiga: 'Bexiga', rins: 'Rins', adrenais: 'Adrenais', figado: 'Fígado',
     vesicula_biliar: 'Vesícula Biliar', baco: 'Baço', estomago: 'Estômago',
     intestinos: 'Intestinos', pancreas: 'Pâncreas', reprodutor: 'Sistema Reprodutor',
-    cavidade_abdominal: 'Cavidade Abdominal', observacoes_finais: 'Observações finais',
+    cavidade_abdominal: 'Cavidade Abdominal',
+    impressao_diagnostica: 'Impressão diagnóstica', observacoes_finais: 'Observações finais',
 };
 
 let checklistsCustom = {};   // { secao: [{id, label, texto}] } carregado do servidor
@@ -659,7 +660,8 @@ function coletarPayload() {
     return {
         cabecalho: cab,
         orgaos: orgaos,
-        impressao_diagnostica: linhas('impressao_diagnostica'),
+        // Frases marcadas (checklist personalizado) primeiro, depois o texto livre.
+        impressao_diagnostica: customChecadas('impressao_diagnostica').concat(linhas('impressao_diagnostica')),
         observacoes_finais: coletarObservacoesFinais(),
     };
 }
@@ -748,24 +750,27 @@ async function gerarPdf(ev) {
 
 /* ---------- Previa editavel ---------- */
 let previaLaudo = null;   // laudo estruturado (servidor + edicoes da medica); persiste entre aberturas do modal
+// Texto de cada seção como saiu da ultima composicao do formulario. Serve de
+// referencia para detectar quais seções a medica alterou a mao (mesclarSecoes).
+let previaBase = { orgaos: [], impressao: [], observacoes: [] };
+const PREVIA_SECOES = ['orgaos', 'impressao', 'observacoes'];
+const PREVIA_ROTULOS = { orgaos: 'Órgãos', impressao: 'Impressão diagnóstica', observacoes: 'Observações' };
 
 /**
- * Abre a previa. Se ja houver um texto editado guardado (previaLaudo), reabre-o
- * com as edicoes preservadas — sem recompor do formulario. Na primeira vez (ou
- * apos "Recompor"), monta o texto a partir do formulario via servidor.
+ * Abre a previa. Sempre recompoe do formulario (para refletir o que foi marcado
+ * nos checklists), mas ao reabrir PRESERVA apenas as seções que a medica editou
+ * a mao — assim uma edicao manual num trecho nao "congela" o resto (modo mesclar).
  */
 async function abrirPrevia() {
-    if (previaLaudo) {
-        preencherPrevia(previaLaudo);
-        abrirModal();
-        mostrarStatus('Prévia reaberta com suas edições. Use "Recompor do formulário" para regerar do zero.', 'ok');
-        return;
-    }
-    await recomporPrevia();
+    await recomporPrevia(previaLaudo ? 'mesclar' : 'novo');
 }
 
-/** (Re)compõe o texto da previa a partir do formulario atual, via servidor. */
-async function recomporPrevia() {
+/**
+ * (Re)compõe o texto da previa a partir do formulario, via servidor.
+ * modo 'novo'    — usa o texto do formulario tal como veio (descarta edicoes);
+ * modo 'mesclar' — mantem as seções que a medica editou a mao e atualiza as demais.
+ */
+async function recomporPrevia(modo = 'novo') {
     const btn = document.getElementById('btn-previa');
     btn.disabled = true;
     mostrarStatus('Montando prévia…');
@@ -783,9 +788,35 @@ async function recomporPrevia() {
             mostrarStatus(msg, 'err');
             return;
         }
-        preencherPrevia(await resp.json());
+        const fresco = await resp.json();
+
+        let preservados = [];   // rótulos dos trechos preservados, para o aviso
+        if (modo === 'mesclar' && previaLaudo) {
+            // Órgãos: mescla por ÓRGÃO (parágrafo). Editar o Fígado, por ex., nao
+            // trava a atualizacao dos checklists dos demais orgaos.
+            const orgs = mesclarOrgaos(fresco);
+            if (orgs.length) preservados.push('Órgãos (' + orgs.join(', ') + ')');
+            // Impressão e Observações: listas de linhas, no nivel da secao inteira.
+            ['impressao', 'observacoes'].forEach((s) => {
+                const editada = JSON.stringify(previaLaudo[s] || []) !== JSON.stringify(previaBase[s] || []);
+                if (editada) {
+                    fresco[s] = (previaLaudo[s] || []).slice();
+                    preservados.push(PREVIA_ROTULOS[s]);
+                } else {
+                    previaBase[s] = (fresco[s] || []).slice();   // segue acompanhando o form
+                }
+            });
+        } else {
+            // Modo 'novo': tudo vem do formulario; a referencia passa a ser ele.
+            PREVIA_SECOES.forEach((s) => { previaBase[s] = (fresco[s] || []).slice(); });
+        }
+
+        preencherPrevia(fresco);
+        avisarSecoesPreservadas(preservados);
         abrirModal();
-        mostrarStatus('Prévia pronta. Ajuste o texto e gere o PDF.', 'ok');
+        mostrarStatus(preservados.length
+            ? 'Prévia atualizada — mantive suas edições manuais; o resto reflete os checklists.'
+            : 'Prévia pronta. Ajuste o texto e gere o PDF.', 'ok');
     } catch (e) {
         mostrarStatus('Erro: ' + e.message, 'err');
     } finally {
@@ -793,12 +824,83 @@ async function recomporPrevia() {
     }
 }
 
-/** Recompõe do formulario descartando as edicoes atuais (com confirmacao). */
+/**
+ * Mescla os parágrafos dos órgãos preservando, um a um, apenas os que a médica
+ * editou a mao. Cada parágrafo é identificado pelo rótulo inicial (texto antes
+ * do primeiro ":"), estável entre composições (ex.: "FÍGADO", "INTESTINOS").
+ * Muta `fresco.orgaos` (o que sera exibido) e `previaBase.orgaos` (nova referencia);
+ * retorna os nomes dos órgãos preservados para o aviso.
+ */
+function mesclarOrgaos(fresco) {
+    // Normaliza qualquer forma (array do servidor ou capturado do textarea) em
+    // parágrafos — o reprodutor, por ex., emite varios blocos com linha em branco.
+    const emParas = (arr) => (arr || []).join('\n\n').split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+    // Chave = rótulo antes do ":" (nos primeiros 40 chars); senao, o inicio do
+    // parágrafo. Em maiusculas para casar mesmo com variacao de caixa.
+    const chave = (p) => {
+        const i = p.indexOf(':');
+        return ((i > 0 && i <= 40) ? p.slice(0, i) : p.slice(0, 40)).trim().toUpperCase();
+    };
+
+    const frescoParas = emParas(fresco.orgaos);
+    const baseMap = {}; emParas(previaBase.orgaos).forEach((p) => { baseMap[chave(p)] = p; });
+    const editMap = {}; emParas(previaLaudo.orgaos).forEach((p) => { editMap[chave(p)] = p; });
+    const frescoKeys = new Set(frescoParas.map(chave));
+
+    // Órgão "editado a mao": existia na referencia e mudou de texto.
+    const editados = new Set();
+    Object.keys(editMap).forEach((k) => {
+        if (baseMap[k] !== undefined && editMap[k] !== baseMap[k]) editados.add(k);
+    });
+
+    // Resultado: ordem/conjunto do formulario; onde houve edicao manual, usa a versao dela.
+    const resultado = frescoParas.map((p) => {
+        const k = chave(p);
+        return editados.has(k) ? editMap[k] : p;
+    });
+    // Salvaguarda: parágrafo digitado/reescrito que o formulario nao reproduz
+    // (chave orfa) é anexado — nunca descartamos texto manual em silencio (laudo).
+    Object.keys(editMap).forEach((k) => {
+        if (baseMap[k] === undefined && !frescoKeys.has(k)) { resultado.push(editMap[k]); editados.add(k); }
+    });
+
+    // Nova referencia: preservados mantem o baseline antigo (seguem "editados" no
+    // proximo reabrir); os demais passam a valer o texto novo do formulario.
+    previaBase.orgaos = frescoParas.map((p) => {
+        const k = chave(p);
+        return (editados.has(k) && baseMap[k] !== undefined) ? baseMap[k] : p;
+    });
+    fresco.orgaos = resultado;
+
+    return Array.from(editados).map(rotuloOrgao);
+}
+
+/** Rótulo amigavel de um órgão a partir da chave ("FÍGADO" -> "Fígado"). */
+function rotuloOrgao(k) {
+    const t = k.toLowerCase();
+    return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+/**
+ * Mostra/oculta o aviso dos trechos preservados (que deixam de acompanhar o
+ * formulario ate um "Recompor" explicito). Recebe uma lista de rótulos prontos.
+ */
+function avisarSecoesPreservadas(nomes) {
+    const aviso = document.getElementById('previa-aviso');
+    if (!nomes || !nomes.length) { aviso.hidden = true; return; }
+    aviso.innerHTML = '⚠ Mantive suas edições manuais em <strong>' + nomes.join('; ') +
+        '</strong>. Esses trechos deixam de ser atualizados pelo formulário — clique em ' +
+        '<strong>“↻ Recompor do formulário”</strong> para regerá-los do zero. O restante ' +
+        'continua refletindo o que você marca nos checklists.';
+    aviso.hidden = false;
+}
+
+/** Recompõe do formulario descartando TODAS as edicoes atuais (com confirmacao). */
 function recomporPreviaConfirmando() {
     if (previaLaudo && !window.confirm('Recompor vai descartar as edições atuais da prévia e regerar o texto a partir do formulário. Continuar?')) {
         return;
     }
-    recomporPrevia();
+    recomporPrevia('novo');
 }
 
 /**
