@@ -231,6 +231,9 @@ body.modal-aberto { overflow: hidden; }
 .fmt-btn--b { font-weight: 800; }
 .fmt-btn--u { text-decoration: underline; }
 
+/* Botao "Recompor" empurrado para a esquerda no rodape da previa ---------- */
+#previa-recompor { margin-right: auto; }
+
 /* Status ----------------------------------------------------------------- */
 .status {
     position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(20px);

@@ -747,10 +747,25 @@ async function gerarPdf(ev) {
 }
 
 /* ---------- Previa editavel ---------- */
-let previaLaudo = null;   // laudo estruturado composto pelo servidor (para reconstruir no envio)
+let previaLaudo = null;   // laudo estruturado (servidor + edicoes da medica); persiste entre aberturas do modal
 
-/** Abre o laudo composto pelo servidor num editor de texto (sem gerar PDF ainda). */
+/**
+ * Abre a previa. Se ja houver um texto editado guardado (previaLaudo), reabre-o
+ * com as edicoes preservadas — sem recompor do formulario. Na primeira vez (ou
+ * apos "Recompor"), monta o texto a partir do formulario via servidor.
+ */
 async function abrirPrevia() {
+    if (previaLaudo) {
+        preencherPrevia(previaLaudo);
+        abrirModal();
+        mostrarStatus('Prévia reaberta com suas edições. Use "Recompor do formulário" para regerar do zero.', 'ok');
+        return;
+    }
+    await recomporPrevia();
+}
+
+/** (Re)compõe o texto da previa a partir do formulario atual, via servidor. */
+async function recomporPrevia() {
     const btn = document.getElementById('btn-previa');
     btn.disabled = true;
     mostrarStatus('Montando prévia…');
@@ -776,6 +791,27 @@ async function abrirPrevia() {
     } finally {
         btn.disabled = false;
     }
+}
+
+/** Recompõe do formulario descartando as edicoes atuais (com confirmacao). */
+function recomporPreviaConfirmando() {
+    if (previaLaudo && !window.confirm('Recompor vai descartar as edições atuais da prévia e regerar o texto a partir do formulário. Continuar?')) {
+        return;
+    }
+    recomporPrevia();
+}
+
+/**
+ * Le as tres caixas da previa de volta para previaLaudo, preservando as edicoes
+ * (inclusive marcadores de estilo) ao fechar o modal — para reabrir depois.
+ */
+function capturarPrevia() {
+    if (!previaLaudo) return;
+    const porLinha = (id) => document.getElementById(id).value.split('\n').map((s) => s.trim()).filter((s) => s !== '');
+    const porBloco = (id) => document.getElementById(id).value.split(/\n\s*\n/).map((s) => s.trim()).filter((s) => s !== '');
+    previaLaudo.orgaos = porBloco('previa-orgaos');
+    previaLaudo.impressao = porLinha('previa-impressao');
+    previaLaudo.observacoes = porLinha('previa-observacoes');
 }
 
 function preencherPrevia(laudo) {
@@ -824,6 +860,7 @@ function abrirModal() {
 }
 
 function fecharModal() {
+    capturarPrevia();   // guarda as edicoes para reabrir depois (nao se perdem ao fechar)
     document.getElementById('previa-modal').hidden = true;
     document.body.classList.remove('modal-aberto');
 }
@@ -944,6 +981,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('form-laudo').addEventListener('keydown', navTeclado);
 
     document.getElementById('previa-gerar').addEventListener('click', gerarPdfDaPrevia);
+    document.getElementById('previa-recompor').addEventListener('click', recomporPreviaConfirmando);
     document.querySelectorAll('#previa-modal [data-fechar]').forEach((e) => e.addEventListener('click', fecharModal));
 
     document.getElementById('config-secao').addEventListener('change', (e) => renderConfigItens(e.target.value));
