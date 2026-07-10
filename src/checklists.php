@@ -115,7 +115,9 @@ function salvarChecklists(array $dados): array
     $dir = dirname($arquivo);
     if (!is_dir($dir)) { @mkdir($dir, 0775, true); }
     $json = json_encode($saida, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
-    if (file_put_contents($arquivo, (string) $json) === false) {
+    // LOCK_EX: o servidor embutido roda com varios workers (PHP_CLI_SERVER_WORKERS);
+    // grava atomico para dois POSTs concorrentes nao intercalarem o JSON.
+    if (file_put_contents($arquivo, (string) $json, LOCK_EX) === false) {
         throw new \RuntimeException('Nao foi possivel gravar ' . $arquivo);
     }
     return $saida;

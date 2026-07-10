@@ -56,8 +56,10 @@ $clarinhaReal = 'RINS: Simétricos. Topografia e dimensões usuais, medindo apro
     . 'ecotextura homogênea, com manutenção de definição e relação corticomedular. Presença de discretos focos '
     . 'hiperecogênicos em topografia de recessos renais bilaterais. '
     . 'Ausência de imagens sugestivas de dilatação de pelves e ureteres.';
-echo "  (nota: verbatim Clarinha difere no rotulo dx e no 'litíases ou' — esperado por decisao Hibrido)\n";
-if ($clarinhaReal === composeRins($clarinha)) { echo "  [inesperado: bateu verbatim]\n"; }
+// A saida canonica difere do verbatim real nos 2 pontos documentados (decisao
+// Hibrido). Travamos isso: se um dia passar a bater verbatim, revisar a decisao.
+checa('difere do verbatim real (decisao Hibrido)', 'diferente',
+    $clarinhaReal !== composeRins($clarinha) ? 'diferente' : 'igual');
 
 /* ---- Caso 2: Tudo Normal (defaults do schema) ---- */
 $normal = [

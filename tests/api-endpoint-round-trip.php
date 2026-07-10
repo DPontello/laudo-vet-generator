@@ -61,7 +61,7 @@ $r = tratarRequisicaoLaudo('POST', json_encode($payloadClarinha));
 checa('POST valido: status 200', $r['status'] === 200, 'status=' . $r['status']);
 checa('POST valido: content-type pdf', ($r['headers']['Content-Type'] ?? '') === 'application/pdf');
 checa('POST valido: corpo %PDF', substr($r['body'], 0, 4) === '%PDF');
-checa('POST valido: filename do paciente', str_contains($r['headers']['Content-Disposition'] ?? '', 'laudo-clarinha.pdf'),
+checa('POST valido: filename do paciente', str_contains($r['headers']['Content-Disposition'] ?? '', 'LAUDO US - Clarinha - 02-07-2026.pdf'),
     $r['headers']['Content-Disposition'] ?? '');
 
 /* ---- 2. Health check GET ---- */

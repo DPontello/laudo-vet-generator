@@ -79,9 +79,10 @@ $pdf = gerarLaudoPdf($estrutura, $imagens);
 checa('PDF nao vazio', strlen($pdf) > 0, 'bytes=' . strlen($pdf));
 checa('assinatura %PDF', substr($pdf, 0, 4) === '%PDF');
 
-$destino = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'laudo-clarinha-teste.pdf';
+$destino = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'laudo-teste-' . getmypid() . '.pdf';
 file_put_contents($destino, $pdf);
-checa('arquivo gravado nao vazio', is_file($destino) && filesize($destino) > 0, $destino);
+$tamanhoDestino = (int) filesize($destino);
+checa('arquivo gravado nao vazio', is_file($destino) && $tamanhoDestino > 0, $destino);
 
 $depois = count(glob($padraoTmp) ?: []);
 checa('imagens temporarias removidas', $depois === $antes, "antes={$antes} depois={$depois}");
@@ -90,7 +91,8 @@ checa('imagens temporarias removidas', $depois === $antes, "antes={$antes} depoi
 $pdfSemImagens = gerarLaudoPdf($estrutura);
 checa('PDF sem imagens', strlen($pdfSemImagens) > 0 && substr($pdfSemImagens, 0, 4) === '%PDF');
 
-echo "\nPDF de amostra: {$destino} (" . filesize($destino) . " bytes)\n";
+echo "\nPDF de amostra gravado ({$tamanhoDestino} bytes) e removido.\n";
+@unlink($destino);   // nao deixa artefato no diretorio temporario
 
 if ($falhas === 0) { echo "\nOK: geracao de PDF verde.\n"; exit(0); }
 echo "\nFALHA: {$falhas} verificacao(oes).\n";

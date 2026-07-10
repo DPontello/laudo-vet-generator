@@ -72,3 +72,28 @@ if (!function_exists('faixaCm')) {
         return '';
     }
 }
+
+if (!function_exists('listaPtBr')) {
+    /**
+     * Junta itens numa enumeracao pt-BR:
+     *   [] -> ''; [a] -> "a"; [a,b] -> "a e b"; [a,b,c] -> "a, b e c".
+     * O chamador deve filtrar itens vazios antes. Fonte unica desse join, antes
+     * reimplementado em adrenais/cavidade-abdominal/intestinos/reprodutor.
+     *
+     * @param array<int,string> $itens
+     */
+    function listaPtBr(array $itens): string
+    {
+        if (!$itens) { return ''; }
+        $ultimo = array_pop($itens);
+        return $itens ? implode(', ', $itens) . ' e ' . $ultimo : $ultimo;
+    }
+}
+
+if (!function_exists('ecotexturaTexto')) {
+    /** Ecotextura (enum de 2 valores) -> pt-BR: 'heterogenea' -> "heterogênea"; senao "homogênea". */
+    function ecotexturaTexto(string $valor): string
+    {
+        return $valor === 'heterogenea' ? 'heterogênea' : 'homogênea';
+    }
+}

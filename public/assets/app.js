@@ -120,13 +120,24 @@ const ORGAOS = [
     { orgao: 'intestinos', titulo: 'Intestinos', avaliavel: true, campos: [
         { t: 'bool', k: 'estratificacao_mantida', label: 'Estratificação mantida', def: true },
         { t: 'enum', k: 'parede', label: 'Parede', opts: [['normoespessa', 'Normoespessa'], ['espessada', 'Espessada']], def: 'normoespessa' },
+        // Padrao anatomico: define quais segmentos aparecem nas medidas (cão x gato).
+        { t: 'enum', k: 'padrao', label: 'Padrão anatômico', opts: [['cao', 'Cão'], ['gato', 'Gato']], def: 'cao' },
         { t: 'group', k: 'medidas', label: 'Medidas por segmento (cm)', children: [
+            // Duodeno e jejuno servem aos dois padroes; os demais aparecem conforme `padrao` (atributo `so`).
             { t: 'num', k: 'duodeno_min_cm', label: 'Duodeno mín.', max: 2 },
             { t: 'num', k: 'duodeno_max_cm', label: 'Duodeno máx.', max: 2 },
             { t: 'num', k: 'jejuno_min_cm', label: 'Jejuno mín.', max: 2 },
             { t: 'num', k: 'jejuno_max_cm', label: 'Jejuno máx.', max: 2 },
-            { t: 'num', k: 'colon_min_cm', label: 'Cólon mín.', max: 2 },
-            { t: 'num', k: 'colon_max_cm', label: 'Cólon máx.', max: 2 },
+            { t: 'num', k: 'colon_min_cm', label: 'Cólon mín.', max: 2, so: 'cao' },
+            { t: 'num', k: 'colon_max_cm', label: 'Cólon máx.', max: 2, so: 'cao' },
+            { t: 'num', k: 'ileo_min_cm', label: 'Íleo mín.', max: 2, so: 'gato' },
+            { t: 'num', k: 'ileo_max_cm', label: 'Íleo máx.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_ascendente_min_cm', label: 'Cólon ascendente mín.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_ascendente_max_cm', label: 'Cólon ascendente máx.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_transverso_min_cm', label: 'Cólon transverso mín.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_transverso_max_cm', label: 'Cólon transverso máx.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_descendente_min_cm', label: 'Cólon descendente mín.', max: 2, so: 'gato' },
+            { t: 'num', k: 'colon_descendente_max_cm', label: 'Cólon descendente máx.', max: 2, so: 'gato' },
         ] },
         { t: 'bool', k: 'peristaltismo_preservado', label: 'Peristaltismo preservado', def: true },
         { t: 'bool', k: 'obstrucao_ausente', label: 'Ausência de obstrução', def: true },
@@ -255,6 +266,8 @@ function renderBool(node, id, container) {
 
 function renderNum(node, id, container) {
     const f = el('div', 'field field--sm');
+    // Campo condicional: aparece apenas para o padrao anatomico indicado em `so`.
+    if (node.so) f.dataset.so = node.so;
     f.appendChild(el('span', null, node.label));
     const inp = el('input'); inp.type = 'number'; inp.id = id; inp.step = '0.01'; inp.min = '0';
     if (node.max != null) inp.max = String(node.max);
@@ -316,6 +329,7 @@ function achadoRow() {
     const med = el('input'); med.type = 'number'; med.step = '0.01'; med.min = '0'; med.placeholder = 'cm'; med.className = 'achado-medida';
     row.appendChild(med);
     const rm = el('button', 'btn btn--ghost', '×'); rm.type = 'button';
+    rm.title = 'Remover achado'; rm.setAttribute('aria-label', 'Remover achado');
     rm.addEventListener('click', () => row.remove());
     row.appendChild(rm);
     return row;
@@ -357,6 +371,19 @@ function renderOrgaos() {
         body.appendChild(custom);
         det.appendChild(body);
         cont.appendChild(det);
+    });
+}
+
+/**
+ * Mostra/oculta os campos de medida dos Intestinos conforme o padrao anatomico
+ * escolhido (cão x gato). Campos marcados com data-so aparecem so no seu padrao;
+ * os sem marca (duodeno/jejuno) ficam sempre visiveis.
+ */
+function atualizarIntestinosPadrao() {
+    const sel = document.querySelector('input[name="intestinos_padrao"]:checked');
+    const padrao = sel ? sel.value : 'cao';
+    document.querySelectorAll('[data-so]').forEach((f) => {
+        f.hidden = (f.dataset.so !== padrao);
     });
 }
 
@@ -454,6 +481,7 @@ function abrirConfig() {
     renderConfigItens(sel.value || Object.keys(SECOES_LABEL)[0]);
     document.getElementById('config-modal').hidden = false;
     document.body.classList.add('modal-aberto');
+    sel.focus();   // move o foco para dentro do modal (acessibilidade)
 }
 
 function fecharConfig() {
@@ -479,7 +507,7 @@ function renderConfigItens(secao) {
         txt.value = item.texto || '';
         txt.addEventListener('input', () => { item.texto = txt.value; });
         const rm = el('button', 'btn btn--ghost config-item__rm', '×'); rm.type = 'button';
-        rm.title = 'Remover item';
+        rm.title = 'Remover item'; rm.setAttribute('aria-label', 'Remover item');
         rm.addEventListener('click', () => { itens.splice(i, 1); renderConfigItens(secao); });
         row.appendChild(rot); row.appendChild(txt); row.appendChild(rm);
         cont.appendChild(row);
@@ -553,6 +581,8 @@ function tudoNormal() {
     document.querySelectorAll('.custom-check').forEach((c) => {
         if (c.dataset.secao !== 'observacoes_finais') c.checked = false;
     });
+    // aplicarDefault seta o radio direto (sem disparar change); resincroniza a visibilidade.
+    atualizarIntestinosPadrao();
     mostrarStatus('Preenchido com os padrões de normalidade.', 'ok');
 }
 
@@ -658,7 +688,7 @@ function renderPreviewImagens() {
         img.alt = f.name;
         const rm = el('button', 'thumb__rm', '×');
         rm.type = 'button';
-        rm.title = 'Remover ' + f.name;
+        rm.title = 'Remover ' + f.name; rm.setAttribute('aria-label', 'Remover imagem ' + f.name);
         rm.addEventListener('click', () => { imagensSelecionadas.splice(i, 1); renderPreviewImagens(); });
         fig.appendChild(img);
         fig.appendChild(rm);
@@ -717,10 +747,25 @@ async function gerarPdf(ev) {
 }
 
 /* ---------- Previa editavel ---------- */
-let previaLaudo = null;   // laudo estruturado composto pelo servidor (para reconstruir no envio)
+let previaLaudo = null;   // laudo estruturado (servidor + edicoes da medica); persiste entre aberturas do modal
 
-/** Abre o laudo composto pelo servidor num editor de texto (sem gerar PDF ainda). */
+/**
+ * Abre a previa. Se ja houver um texto editado guardado (previaLaudo), reabre-o
+ * com as edicoes preservadas — sem recompor do formulario. Na primeira vez (ou
+ * apos "Recompor"), monta o texto a partir do formulario via servidor.
+ */
 async function abrirPrevia() {
+    if (previaLaudo) {
+        preencherPrevia(previaLaudo);
+        abrirModal();
+        mostrarStatus('Prévia reaberta com suas edições. Use "Recompor do formulário" para regerar do zero.', 'ok');
+        return;
+    }
+    await recomporPrevia();
+}
+
+/** (Re)compõe o texto da previa a partir do formulario atual, via servidor. */
+async function recomporPrevia() {
     const btn = document.getElementById('btn-previa');
     btn.disabled = true;
     mostrarStatus('Montando prévia…');
@@ -746,6 +791,27 @@ async function abrirPrevia() {
     } finally {
         btn.disabled = false;
     }
+}
+
+/** Recompõe do formulario descartando as edicoes atuais (com confirmacao). */
+function recomporPreviaConfirmando() {
+    if (previaLaudo && !window.confirm('Recompor vai descartar as edições atuais da prévia e regerar o texto a partir do formulário. Continuar?')) {
+        return;
+    }
+    recomporPrevia();
+}
+
+/**
+ * Le as tres caixas da previa de volta para previaLaudo, preservando as edicoes
+ * (inclusive marcadores de estilo) ao fechar o modal — para reabrir depois.
+ */
+function capturarPrevia() {
+    if (!previaLaudo) return;
+    const porLinha = (id) => document.getElementById(id).value.split('\n').map((s) => s.trim()).filter((s) => s !== '');
+    const porBloco = (id) => document.getElementById(id).value.split(/\n\s*\n/).map((s) => s.trim()).filter((s) => s !== '');
+    previaLaudo.orgaos = porBloco('previa-orgaos');
+    previaLaudo.impressao = porLinha('previa-impressao');
+    previaLaudo.observacoes = porLinha('previa-observacoes');
 }
 
 function preencherPrevia(laudo) {
@@ -794,6 +860,7 @@ function abrirModal() {
 }
 
 function fecharModal() {
+    capturarPrevia();   // guarda as edicoes para reabrir depois (nao se perdem ao fechar)
     document.getElementById('previa-modal').hidden = true;
     document.body.classList.remove('modal-aberto');
 }
@@ -828,6 +895,54 @@ function alternarTema() {
     aplicarTema(atual === 'dark' ? 'light' : 'dark');
 }
 
+/* ---------- Marcacao de estilo (negrito / sublinhado) ----------
+ * As caixas de Impressao diagnostica e Observacoes aceitam negrito e sublinhado
+ * via marcadores leves no texto: **negrito** e __sublinhado__. O PHP do PDF
+ * interpreta esses marcadores (ver pdfRunsMarcados em src/pdf/gerarPdf.php).
+ * Aqui so envolvemos a selecao nos marcadores — o texto continua editavel. */
+
+/** Envolve a selecao atual do textarea com os marcadores (ex.: '**'). */
+function envolverSelecao(ta, marca) {
+    const ini = ta.selectionStart != null ? ta.selectionStart : ta.value.length;
+    const fim = ta.selectionEnd != null ? ta.selectionEnd : ini;
+    const val = ta.value;
+    const sel = val.slice(ini, fim);
+    ta.value = val.slice(0, ini) + marca + sel + marca + val.slice(fim);
+    // Mantem selecionado o mesmo trecho, agora entre os marcadores.
+    const desl = ini + marca.length;
+    ta.focus();
+    ta.setSelectionRange(desl, desl + sel.length);
+}
+
+/** Insere uma barra com botoes B/U logo acima do textarea informado. */
+function montarBarraEstilo(ta) {
+    const bar = el('div', 'fmt-bar');
+
+    const botao = (rotulo, marca, titulo, cls) => {
+        const b = el('button', 'btn btn--ghost fmt-btn' + (cls ? ' ' + cls : ''), rotulo);
+        b.type = 'button';
+        b.title = titulo;
+        // mousedown preventDefault preserva a selecao do textarea ao clicar no botao.
+        b.addEventListener('mousedown', (e) => e.preventDefault());
+        b.addEventListener('click', () => envolverSelecao(ta, marca));
+        return b;
+    };
+
+    bar.appendChild(botao('N', '**', 'Negrito (Ctrl+B) — envolve a seleção em **', 'fmt-btn--b'));
+    bar.appendChild(botao('S', '__', 'Sublinhado (Ctrl+U) — envolve a seleção em __', 'fmt-btn--u'));
+
+    // Atalhos de teclado dentro da propria caixa.
+    ta.addEventListener('keydown', (ev) => {
+        if (!(ev.ctrlKey || ev.metaKey)) return;
+        const k = ev.key.toLowerCase();
+        if (k === 'b') { ev.preventDefault(); envolverSelecao(ta, '**'); }
+        else if (k === 'u') { ev.preventDefault(); envolverSelecao(ta, '__'); }
+    });
+
+    const ancora = ta.closest('label.field') || ta;
+    ancora.parentNode.insertBefore(bar, ancora);
+}
+
 /* ---------- Navegacao por teclado ---------- */
 function navTeclado(ev) {
     if (ev.key !== 'Enter') return;
@@ -847,6 +962,16 @@ document.addEventListener('DOMContentLoaded', () => {
     aplicarTema(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
     carregarChecklistsCustom();
 
+    // Intestinos: alterna os segmentos visiveis conforme o padrao anatomico (cão/gato).
+    document.querySelectorAll('input[name="intestinos_padrao"]').forEach((r) => r.addEventListener('change', atualizarIntestinosPadrao));
+    atualizarIntestinosPadrao();
+
+    // Barras de estilo (negrito/sublinhado) nas caixas de impressao e observacoes.
+    ['impressao_diagnostica', 'observacoes_finais', 'previa-impressao', 'previa-observacoes'].forEach((id) => {
+        const ta = document.getElementById(id);
+        if (ta) montarBarraEstilo(ta);
+    });
+
     document.getElementById('btn-tema').addEventListener('click', alternarTema);
     document.getElementById('btn-config').addEventListener('click', abrirConfig);
     document.getElementById('btn-tudo-normal').addEventListener('click', tudoNormal);
@@ -856,6 +981,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('form-laudo').addEventListener('keydown', navTeclado);
 
     document.getElementById('previa-gerar').addEventListener('click', gerarPdfDaPrevia);
+    document.getElementById('previa-recompor').addEventListener('click', recomporPreviaConfirmando);
     document.querySelectorAll('#previa-modal [data-fechar]').forEach((e) => e.addEventListener('click', fecharModal));
 
     document.getElementById('config-secao').addEventListener('change', (e) => renderConfigItens(e.target.value));
