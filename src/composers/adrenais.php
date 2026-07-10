@@ -39,9 +39,7 @@ function adrenalMedidas(array $a): string
     if (!$partes) {
         return '';
     }
-    $ultima = array_pop($partes);
-    $texto = $partes ? implode(', ', $partes) . ' e ' . $ultima : $ultima;
-    return 'medindo aproximadamente ' . $texto;
+    return 'medindo aproximadamente ' . listaPtBr($partes);
 }
 
 /**

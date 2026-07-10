@@ -10,7 +10,9 @@ declare(strict_types=1);
  *
  * Estrategia (decisao "Hibrido"): prosa canonica do modelo
  * (docs/referencia/modelo-laudo-aline.txt), na forma colapsada usada no laudo real
- * (faixas por segmento duodeno/jejuno/cólon inline). Frases:
+ * (faixas por segmento inline). O campo `padrao` escolhe os segmentos avaliados:
+ * 'cao' (duodeno/jejuno/cólon) ou 'gato' (duodeno/jejuno/íleo + cólon
+ * ascendente/transverso/descendente). Frases:
  *   1. paredes (estratificacao + espessura) + faixas por segmento;
  *   2. replecao do delgado;
  *   3. peristaltismo;
@@ -42,17 +44,30 @@ function composeIntestinos(array $i): string
 
     $m = (array) ($i['medidas'] ?? []);
     $segmentos = [];
-    $duodeno = faixaCm($m['duodeno_min_cm'] ?? null, $m['duodeno_max_cm'] ?? null);
-    if ($duodeno !== '') { $segmentos[] = "{$duodeno} em duodeno"; }
-    $jejuno = faixaCm($m['jejuno_min_cm'] ?? null, $m['jejuno_max_cm'] ?? null);
-    if ($jejuno !== '') { $segmentos[] = "{$jejuno} em jejuno"; }
-    $colon = faixaCm($m['colon_min_cm'] ?? null, $m['colon_max_cm'] ?? null);
-    if ($colon !== '') { $segmentos[] = "{$colon} em cólon"; }
+
+    // Adiciona um segmento a lista se ao menos uma das medidas (min/max) foi aferida.
+    $addSegmento = static function (string $rotulo, string $chaveMin, string $chaveMax) use (&$segmentos, $m): void {
+        $faixa = faixaCm($m[$chaveMin] ?? null, $m[$chaveMax] ?? null);
+        if ($faixa !== '') { $segmentos[] = "{$faixa} em {$rotulo}"; }
+    };
+
+    // Segmentos avaliados por padrao anatomico: o cao usa cólon unico; o gato
+    // detalha íleo e as tres porcoes do cólon (modelo-laudo-aline.txt).
+    if (($i['padrao'] ?? 'cao') === 'gato') {
+        $addSegmento('duodeno', 'duodeno_min_cm', 'duodeno_max_cm');
+        $addSegmento('jejuno', 'jejuno_min_cm', 'jejuno_max_cm');
+        $addSegmento('íleo', 'ileo_min_cm', 'ileo_max_cm');
+        $addSegmento('cólon ascendente', 'colon_ascendente_min_cm', 'colon_ascendente_max_cm');
+        $addSegmento('cólon transverso', 'colon_transverso_min_cm', 'colon_transverso_max_cm');
+        $addSegmento('cólon descendente', 'colon_descendente_min_cm', 'colon_descendente_max_cm');
+    } else {
+        $addSegmento('duodeno', 'duodeno_min_cm', 'duodeno_max_cm');
+        $addSegmento('jejuno', 'jejuno_min_cm', 'jejuno_max_cm');
+        $addSegmento('cólon', 'colon_min_cm', 'colon_max_cm');
+    }
 
     if ($segmentos) {
-        $ultimo = array_pop($segmentos);
-        $lista = $segmentos ? implode(', ', $segmentos) . ' e ' . $ultimo : $ultimo;
-        $s1 .= ', medindo aproximadamente ' . $lista;
+        $s1 .= ', medindo aproximadamente ' . listaPtBr($segmentos);
     }
     $frases[] = $s1 . '.';
 

@@ -48,7 +48,7 @@ function composeBaco(array $b): string
     }
 
     // 2. Ecogenicidade + ecotextura (baco: ecogenicidade sempre usual no modelo).
-    $ecotextura = (($b['ecotextura'] ?? 'homogenea') === 'heterogenea') ? 'heterogênea' : 'homogênea';
+    $ecotextura = ecotexturaTexto($b['ecotextura'] ?? 'homogenea');
     $frases[] = "Ecogenicidade usual e ecotextura {$ecotextura}.";
 
     // 3. Vascularizacao (some quando alterada; detalhe vai por observacoes).

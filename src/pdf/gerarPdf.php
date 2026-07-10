@@ -158,6 +158,56 @@ function pdfParagrafoRico(LaudoPdf $pdf, array $runs, float $tamanho, float $lh,
     }
 }
 
+/**
+ * Converte marcacao leve de texto em runs de estilo para pdfParagrafoRico():
+ *   **trecho**  -> negrito
+ *   __trecho__  -> sublinhado
+ * (podem se combinar/sobrepor). Usada na Impressao diagnostica e nas Observacoes,
+ * onde a medica marca destaques na previa/painel.
+ *
+ * O estilo e resolvido por PALAVRA (a pontuacao colada herda o destaque da
+ * palavra), casando com o modelo palavra-a-palavra de pdfParagrafoRico e evitando
+ * espacos espurios. $base e o estilo herdado da secao (ex.: 'I' das observacoes).
+ * A varredura e por bytes: os marcadores sao ASCII e nunca colidem com bytes de
+ * caracteres multibyte (UTF-8), entao acentos ficam intactos.
+ *
+ * @return array<array{0:string,1:string}> Runs [texto, estilo FPDF].
+ */
+function pdfRunsMarcados(string $texto, string $base = ''): array
+{
+    $runs = [];
+    $palavra = '';
+    $palavraBold = false;
+    $palavraUnder = false;
+    $bold = false;
+    $under = false;
+
+    $fechar = static function () use (&$runs, &$palavra, &$palavraBold, &$palavraUnder, $base): void {
+        if ($palavra === '') { return; }
+        // FPDF normaliza a ordem (IB->BI) e extrai 'U' para o sublinhado.
+        $estilo = $base . ($palavraBold ? 'B' : '') . ($palavraUnder ? 'U' : '');
+        $runs[] = [$palavra, $estilo];
+        $palavra = '';
+        $palavraBold = false;
+        $palavraUnder = false;
+    };
+
+    $n = strlen($texto);
+    for ($k = 0; $k < $n; $k++) {
+        $c = $texto[$k];
+        $par = ($k + 1 < $n) ? $c . $texto[$k + 1] : '';
+        if ($par === '**') { $bold = !$bold; $k++; continue; }
+        if ($par === '__') { $under = !$under; $k++; continue; }
+        if ($c === ' ' || $c === "\t" || $c === "\n" || $c === "\r") { $fechar(); continue; }
+        $palavra .= $c;
+        if ($bold) { $palavraBold = true; }
+        if ($under) { $palavraUnder = true; }
+    }
+    $fechar();
+
+    return $runs !== [] ? $runs : [[$texto, $base]];
+}
+
 /** Garante espaco vertical minimo antes de um bloco; senao abre nova pagina. */
 function pdfGarantirEspaco(LaudoPdf $pdf, float $alturaMinima): void
 {
@@ -264,7 +314,8 @@ function pdfBlocoOrgao(LaudoPdf $pdf, string $bloco): void
             pdfParagrafoRico($pdf, [[$linha, '']], 11, 5.3);
         }
     }
-    $pdf->Ln(3.8);
+    // Espaco entre orgaos: respiro base + uma linha em branco a mais (pedido da medica).
+    $pdf->Ln(3.8 + 5.3);
 }
 
 /**
@@ -377,7 +428,7 @@ function gerarLaudoPdf(array $laudo, array $imagensJpeg = []): string
         pdfRotulo($pdf, 'IMPRESSÃO DIAGNÓSTICA:', 'BIU', 11.5, 6.5);
         $pdf->Ln(0.8);
         foreach ($impressao as $item) {
-            pdfParagrafoRico($pdf, [[(string) $item, '']], 11, 5.3);
+            pdfParagrafoRico($pdf, pdfRunsMarcados((string) $item), 11, 5.3);
         }
         $pdf->Ln(3.5);
     }
@@ -390,7 +441,7 @@ function gerarLaudoPdf(array $laudo, array $imagensJpeg = []): string
         pdfRotulo($pdf, count($observacoes) > 1 ? 'Observações:' : 'Observação:', 'BI', 11, 6.0);
         $pdf->Ln(0.8);
         foreach ($observacoes as $item) {
-            pdfParagrafoRico($pdf, [[(string) $item, 'I']], 10.5, 5.0);
+            pdfParagrafoRico($pdf, pdfRunsMarcados((string) $item, 'I'), 10.5, 5.0);
             $pdf->Ln(1.2);
         }
         $pdf->Ln(2.5);

@@ -209,16 +209,28 @@
             "avaliado": { "type": "boolean", "default": true },
             "estratificacao_mantida": { "type": "boolean", "default": true },
             "parede": { "type": "string", "enum": ["normoespessa", "espessada"], "default": "normoespessa" },
+            "padrao": {
+              "type": "string", "enum": ["cao", "gato"], "default": "cao",
+              "description": "Padrao anatomico dos segmentos avaliados: cao (duodeno/jejuno/colon) ou gato (duodeno/jejuno/ileo + colon ascendente/transverso/descendente)."
+            },
             "medidas": {
               "type": "object", "additionalProperties": false,
-              "description": "Faixa min-max por segmento (cm).",
+              "description": "Faixa min-max por segmento (cm). Duodeno/jejuno servem aos dois padroes; colon* aplicam-se ao cao; ileo e colon_ascendente/transverso/descendente ao gato.",
               "properties": {
                 "duodeno_min_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
                 "duodeno_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
                 "jejuno_min_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
                 "jejuno_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
                 "colon_min_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
-                "colon_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 }
+                "colon_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "ileo_min_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "ileo_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "colon_ascendente_min_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "colon_ascendente_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "colon_transverso_min_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "colon_transverso_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "colon_descendente_min_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 },
+                "colon_descendente_max_cm": { "$ref": "#/$defs/medida_cm", "maximum": 2 }
               }
             },
             "peristaltismo_preservado": { "type": "boolean", "default": true },

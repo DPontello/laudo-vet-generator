@@ -13,18 +13,17 @@
     --focus: 0 0 0 3px rgba(31, 111, 235, .35);
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #0f1420;
-        --card: #171d2b;
-        --ink: #e7ecf3;
-        --muted: #9aa6b6;
-        --line: #2a3346;
-        --brand: #4c8dff;
-        --ok: #4ad295;
-        --err: #ff7a6b;
-        --shadow: none;
-    }
+/* Tema escuro: aplicado por escolha explicita (botao), padrao e o claro acima. */
+:root[data-theme="dark"] {
+    --bg: #0f1420;
+    --card: #171d2b;
+    --ink: #e7ecf3;
+    --muted: #9aa6b6;
+    --line: #2a3346;
+    --brand: #4c8dff;
+    --ok: #4ad295;
+    --err: #ff7a6b;
+    --shadow: none;
 }
 
 * { box-sizing: border-box; }
@@ -163,6 +162,77 @@ textarea { resize: vertical; }
     font-size: 11px; color: var(--muted); padding: 4px 8px; background: var(--card);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
+/* Observacoes finais (checklist da biblioteca + campo livre) -------------- */
+.obs-lista { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.obs-opcao {
+    display: flex; align-items: flex-start; gap: 9px;
+    padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg); cursor: pointer; font-size: 13.5px; line-height: 1.45;
+}
+.obs-opcao input { margin-top: 2px; width: 16px; height: 16px; flex: none; accent-color: var(--brand); }
+.obs-opcao:has(input:checked) { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+.obs-opcao:focus-within { box-shadow: var(--focus); }
+.obs-livre { margin-top: 2px; }
+
+/* Modal (previa editavel) ------------------------------------------------- */
+.modal[hidden] { display: none; }
+.modal {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.modal__backdrop { position: absolute; inset: 0; background: rgba(10, 14, 22, .55); }
+.modal__box {
+    position: relative; z-index: 1;
+    width: min(820px, 100%); max-height: 90vh; display: flex; flex-direction: column;
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, .35);
+}
+.modal__head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; border-bottom: 1px solid var(--line);
+}
+.modal__title { margin: 0; font-size: 16px; }
+.modal__sub { color: var(--muted); font-weight: 400; font-size: 13px; }
+.modal__x {
+    margin-left: auto; width: 32px; height: 32px; flex: none;
+    border: 1px solid var(--line); border-radius: 8px; background: transparent;
+    color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer;
+}
+.modal__x:hover { background: rgba(127, 127, 127, .08); }
+.modal__x:focus-visible { outline: none; box-shadow: var(--focus); }
+.modal__body { padding: 16px 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.modal__body textarea { font-family: "Georgia", "Times New Roman", serif; line-height: 1.5; }
+.modal__foot {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 12px 18px; border-top: 1px solid var(--line);
+}
+.previa-cab { margin: 0; color: var(--muted); font-size: 13px; font-weight: 600; }
+body.modal-aberto { overflow: hidden; }
+
+/* Itens editaveis do gerenciador de checklists ---------------------------- */
+.config-item {
+    display: grid; grid-template-columns: minmax(120px, 1fr) 2fr auto; gap: 8px;
+    align-items: start; margin-bottom: 8px;
+}
+.config-item__rm { padding: 8px 12px; align-self: start; }
+@media (max-width: 560px) { .config-item { grid-template-columns: 1fr auto; } .config-item__texto { grid-column: 1 / -1; } }
+
+/* Caixas personalizadas dentro dos orgaos --------------------------------- */
+.orgao__custom { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.orgao__custom:empty { display: none; }
+.obs-lista--custom:empty { display: none; }
+.obs-lista--custom { margin-top: -6px; }
+
+/* Barra de estilo (negrito / sublinhado) nas caixas de texto -------------- */
+.fmt-bar { display: flex; gap: 6px; margin-bottom: 6px; }
+.fmt-btn { padding: 3px 12px; font-size: 13px; line-height: 1.4; min-width: 34px; }
+.fmt-btn--b { font-weight: 800; }
+.fmt-btn--u { text-decoration: underline; }
+
+/* Botao "Recompor" empurrado para a esquerda no rodape da previa ---------- */
+#previa-recompor { margin-right: auto; }
 
 /* Status ----------------------------------------------------------------- */
 .status {

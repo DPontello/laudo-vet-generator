@@ -10,11 +10,19 @@ CLAUDE.md
 composer.lock
 *.log
 
-# Artefatos efêmeros (PDFs gerados e imagens anexadas são descartados)
+# Artefatos: PDFs gerados e imagens anexadas nunca vão pro Git.
+# (As imagens são efêmeras; os PDFs são arquivados localmente em data/laudos/,
+#  que já cai na regra /data/ abaixo — histórico da médica, fora do versionamento.)
 /storage/tmp/
 /public/laudos-gerados/
 *.pdf
 !docs/referencia/*.pdf
+
+# Dados do usuário: checklists personalizados e laudos arquivados (data/laudos/).
+/data/
+
+# Pacote de distribuição gerado (montar-pacote.sh/.bat)
+/dist/
 
 # Ambiente / segredos
 .env

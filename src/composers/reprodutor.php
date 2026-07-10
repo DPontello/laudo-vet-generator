@@ -26,14 +26,6 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_helpers.php';
 
-/** Junta itens em lista pt-BR: [a] -> "a"; [a,b] -> "a e b"; [a,b,c] -> "a, b e c". */
-function reproLista(array $itens): string
-{
-    if (!$itens) { return ''; }
-    $ultimo = array_pop($itens);
-    return $itens ? implode(', ', $itens) . ' e ' . $ultimo : $ultimo;
-}
-
 /** Bloco "ÚTERO E OVÁRIOS" (historico de ovariohisterectomia). */
 function reproUteroOvariosAusentes(array $x): string
 {
@@ -54,7 +46,7 @@ function uteroDiametro(array $x): string
     if (($x['corpo_cm'] ?? null) !== null)          { $partes[] = formatarCm((float) $x['corpo_cm']) . ' cm em corpo'; }
     if (($x['corno_esquerdo_cm'] ?? null) !== null) { $partes[] = formatarCm((float) $x['corno_esquerdo_cm']) . ' cm em corno esquerdo'; }
     if (($x['corno_direito_cm'] ?? null) !== null)  { $partes[] = formatarCm((float) $x['corno_direito_cm']) . ' cm em corno direito'; }
-    return reproLista($partes);
+    return listaPtBr($partes);
 }
 
 /** Bloco "ÚTERO". */
@@ -99,7 +91,7 @@ function reproOvarios(array $x): string
     if (($x['medida_direito_cm'] ?? null) !== null)  { $medidas[] = formatarCm((float) $x['medida_direito_cm']) . ' cm o direito'; }
 
     $s = 'OVÁRIOS: Forma e contorno usuais';
-    if ($medidas) { $s .= ', medindo aproximadamente ' . reproLista($medidas); }
+    if ($medidas) { $s .= ', medindo aproximadamente ' . listaPtBr($medidas); }
     $s .= '.';
 
     $estruturas = $x['estruturas_anecoicas'] ?? 'nenhuma';
@@ -108,7 +100,7 @@ function reproOvarios(array $x): string
         $dx = ($estruturas === 'cistos') ? 'cistos ovarianos' : 'folículos ovarianos';
         $s .= ' Diag. diferenciais: ' . $dx . '.';
     } else {
-        $ecotextura = (($x['ecotextura'] ?? 'homogenea') === 'heterogenea') ? 'heterogênea' : 'homogênea';
+        $ecotextura = ecotexturaTexto($x['ecotextura'] ?? 'homogenea');
         $s .= " Ecogenicidade usual e ecotextura {$ecotextura}.";
     }
     return $s;
@@ -185,6 +177,11 @@ function composeReprodutor(array $r): string
     ] as $bloco) {
         if ($bloco !== '') { $blocos[] = $bloco; }
     }
+
+    // Observacoes livres (excecoes / checklists personalizados) entram como
+    // paragrafo proprio ao final da secao, como nos demais orgaos (decisao Hibrido).
+    $obs = trim((string) ($r['observacoes'] ?? ''));
+    if ($obs !== '') { $blocos[] = $obs; }
 
     return implode("\n\n", $blocos);
 }

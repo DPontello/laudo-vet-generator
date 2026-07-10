@@ -25,14 +25,6 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_helpers.php';
 
-/** Junta itens em lista pt-BR: [a] -> "a"; [a,b] -> "a e b"; [a,b,c] -> "a, b e c". */
-function cavLista(array $itens): string
-{
-    if (!$itens) { return ''; }
-    $ultimo = array_pop($itens);
-    return $itens ? implode(', ', $itens) . ' e ' . $ultimo : $ultimo;
-}
-
 /**
  * Compoe o paragrafo da Cavidade Abdominal.
  *
@@ -59,7 +51,7 @@ function composeCavidadeAbdominal(array $c): string
         $mapa = ['abdominais' => 'abdominais', 'jejunais' => 'jejunais', 'iliacos_mediais' => 'ilíacos mediais'];
         $grupos = [];
         foreach ((array) ($lf['grupos'] ?? []) as $g) { $grupos[] = $mapa[$g] ?? $g; }
-        $lista = cavLista($grupos);
+        $lista = listaPtBr($grupos);
         $frases[] = $lista !== ''
             ? "Linfonodos {$lista} aumentados de tamanho."
             : 'Linfonodos aumentados de tamanho.';

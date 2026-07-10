@@ -99,13 +99,13 @@ comparam com o texto esperado (extraído do modelo/laudo real).
 **Com Docker:**
 
 ```bash
-docker compose run --rm laudo sh -c 'for t in tests/*.php; do php "$t" || exit 1; done'
+docker compose run --rm laudo php tests/all.php
 ```
 
 **Sem Docker:**
 
 ```bash
-for t in tests/*.php; do php "$t" || break; done
+php tests/all.php          # roda a suíte inteira e agrega o resultado
 ```
 
 Rodar um único teste:
