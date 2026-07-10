@@ -314,7 +314,8 @@ function pdfBlocoOrgao(LaudoPdf $pdf, string $bloco): void
             pdfParagrafoRico($pdf, [[$linha, '']], 11, 5.3);
         }
     }
-    $pdf->Ln(3.8);
+    // Espaco entre orgaos: respiro base + uma linha em branco a mais (pedido da medica).
+    $pdf->Ln(3.8 + 5.3);
 }
 
 /**
