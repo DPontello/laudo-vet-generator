@@ -858,6 +858,54 @@ function alternarTema() {
     aplicarTema(atual === 'dark' ? 'light' : 'dark');
 }
 
+/* ---------- Marcacao de estilo (negrito / sublinhado) ----------
+ * As caixas de Impressao diagnostica e Observacoes aceitam negrito e sublinhado
+ * via marcadores leves no texto: **negrito** e __sublinhado__. O PHP do PDF
+ * interpreta esses marcadores (ver pdfRunsMarcados em src/pdf/gerarPdf.php).
+ * Aqui so envolvemos a selecao nos marcadores — o texto continua editavel. */
+
+/** Envolve a selecao atual do textarea com os marcadores (ex.: '**'). */
+function envolverSelecao(ta, marca) {
+    const ini = ta.selectionStart != null ? ta.selectionStart : ta.value.length;
+    const fim = ta.selectionEnd != null ? ta.selectionEnd : ini;
+    const val = ta.value;
+    const sel = val.slice(ini, fim);
+    ta.value = val.slice(0, ini) + marca + sel + marca + val.slice(fim);
+    // Mantem selecionado o mesmo trecho, agora entre os marcadores.
+    const desl = ini + marca.length;
+    ta.focus();
+    ta.setSelectionRange(desl, desl + sel.length);
+}
+
+/** Insere uma barra com botoes B/U logo acima do textarea informado. */
+function montarBarraEstilo(ta) {
+    const bar = el('div', 'fmt-bar');
+
+    const botao = (rotulo, marca, titulo, cls) => {
+        const b = el('button', 'btn btn--ghost fmt-btn' + (cls ? ' ' + cls : ''), rotulo);
+        b.type = 'button';
+        b.title = titulo;
+        // mousedown preventDefault preserva a selecao do textarea ao clicar no botao.
+        b.addEventListener('mousedown', (e) => e.preventDefault());
+        b.addEventListener('click', () => envolverSelecao(ta, marca));
+        return b;
+    };
+
+    bar.appendChild(botao('N', '**', 'Negrito (Ctrl+B) — envolve a seleção em **', 'fmt-btn--b'));
+    bar.appendChild(botao('S', '__', 'Sublinhado (Ctrl+U) — envolve a seleção em __', 'fmt-btn--u'));
+
+    // Atalhos de teclado dentro da propria caixa.
+    ta.addEventListener('keydown', (ev) => {
+        if (!(ev.ctrlKey || ev.metaKey)) return;
+        const k = ev.key.toLowerCase();
+        if (k === 'b') { ev.preventDefault(); envolverSelecao(ta, '**'); }
+        else if (k === 'u') { ev.preventDefault(); envolverSelecao(ta, '__'); }
+    });
+
+    const ancora = ta.closest('label.field') || ta;
+    ancora.parentNode.insertBefore(bar, ancora);
+}
+
 /* ---------- Navegacao por teclado ---------- */
 function navTeclado(ev) {
     if (ev.key !== 'Enter') return;
@@ -880,6 +928,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Intestinos: alterna os segmentos visiveis conforme o padrao anatomico (cão/gato).
     document.querySelectorAll('input[name="intestinos_padrao"]').forEach((r) => r.addEventListener('change', atualizarIntestinosPadrao));
     atualizarIntestinosPadrao();
+
+    // Barras de estilo (negrito/sublinhado) nas caixas de impressao e observacoes.
+    ['impressao_diagnostica', 'observacoes_finais', 'previa-impressao', 'previa-observacoes'].forEach((id) => {
+        const ta = document.getElementById(id);
+        if (ta) montarBarraEstilo(ta);
+    });
 
     document.getElementById('btn-tema').addEventListener('click', alternarTema);
     document.getElementById('btn-config').addEventListener('click', abrirConfig);
